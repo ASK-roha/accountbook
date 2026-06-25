@@ -303,7 +303,7 @@ const buildDash = () => {
         <span style="font:400 13px/1 var(--font-t);white-space:nowrap;">월급</span>
         <span style="display:inline-flex;align-items:baseline;gap:3px;">
           <input id="ci" class="kb-ghost" type="number" value="${income}" oninput="App.onIncome(this.value)"
-            style="width:100px;text-align:right;border-bottom:2px solid ${st.people[0].accent};font:600 15px/1.2 var(--font-t);color:${st.people[0].accent};padding:2px 0;font-variant-numeric:tabular-nums;">
+            style="text-align:right;border-bottom:2px solid ${st.people[0].accent};font:600 15px/1.2 var(--font-t);color:${st.people[0].accent};padding:2px 0;font-variant-numeric:tabular-nums;">
           <span style="color:var(--muted);font-size:12px;">원</span>
         </span>
       </label>
@@ -319,7 +319,7 @@ const buildDash = () => {
         <span style="font:400 13px/1 var(--font-t);color:var(--sub);">− 용돈</span>
         <span style="display:inline-flex;align-items:baseline;gap:3px;">
           <input id="ca" class="kb-ghost" type="number" value="${allowance}" oninput="App.onAllowance(this.value)"
-            style="width:100px;text-align:right;border-bottom:1px dashed var(--muted);font:600 14px/1.2 var(--font-t);padding:2px 0;font-variant-numeric:tabular-nums;">
+            style="text-align:right;border-bottom:1px dashed var(--muted);font:600 14px/1.2 var(--font-t);padding:2px 0;font-variant-numeric:tabular-nums;">
           <span style="color:var(--muted);font-size:12px;">원</span>
         </span>
       </label>
@@ -337,7 +337,7 @@ const buildDash = () => {
         <span style="font:400 13px/1 var(--font-t);white-space:nowrap;">월급</span>
         <span style="display:inline-flex;align-items:baseline;gap:3px;">
           <input id="si" class="kb-ghost" type="number" value="${+st.people[1].salary||0}" oninput="App.editPerson(1,'salary',this.value)"
-            style="width:100px;text-align:right;border-bottom:2px solid ${st.people[1].accent};font:600 15px/1.2 var(--font-t);color:${st.people[1].accent};padding:2px 0;font-variant-numeric:tabular-nums;">
+            style="text-align:right;border-bottom:2px solid ${st.people[1].accent};font:600 15px/1.2 var(--font-t);color:${st.people[1].accent};padding:2px 0;font-variant-numeric:tabular-nums;">
           <span style="color:var(--muted);font-size:12px;">원</span>
         </span>
       </label>
@@ -353,7 +353,7 @@ const buildDash = () => {
         <span style="font:400 13px/1 var(--font-t);color:var(--sub);">− 용돈</span>
         <span style="display:inline-flex;align-items:baseline;gap:3px;">
           <input id="sa" class="kb-ghost" type="number" value="${+st.people[1].allowance||0}" oninput="App.editPerson(1,'allowance',this.value)"
-            style="width:100px;text-align:right;border-bottom:1px dashed var(--muted);font:600 14px/1.2 var(--font-t);padding:2px 0;font-variant-numeric:tabular-nums;">
+            style="text-align:right;border-bottom:1px dashed var(--muted);font:600 14px/1.2 var(--font-t);padding:2px 0;font-variant-numeric:tabular-nums;">
           <span style="color:var(--muted);font-size:12px;">원</span>
         </span>
       </label>
@@ -560,6 +560,7 @@ const render = () => {
   root.innerHTML=buildSidebar()+`<main>${page()}</main>`;
 
   if(_fid){const el=document.getElementById(_fid);if(el){el.focus();if(el.type==='number'){const v=el.value;el.value='';el.value=v;}else{try{el.setSelectionRange(_fss,_fse);}catch(e){}}}}
+  ['ci','ca','si','sa'].forEach(id=>{const el=document.getElementById(id);if(!el)return;const ctx=document.createElement('canvas').getContext('2d');const cs=getComputedStyle(el);ctx.font=cs.fontWeight+' '+cs.fontSize+'/1 '+cs.fontFamily;el.style.width=Math.ceil(ctx.measureText(el.value||'0').width)+6+'px';});
   drawCharts();
   persist();
 };
