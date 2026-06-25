@@ -72,14 +72,14 @@ const MONTHS = {
   12:{income:3975780,fixed:1077560,cards:{h:0,s:0,k:0},allowance:650000},
 };
 const KROWS=[['점심값',264000],['관리비',320000],['하온 돌봄비',500000],['메트라이프 하온',200000],
-  ['메트라이프 기남',91900],['코주부',99100],['기남 실비',65230],['통신요금',56150],['어린이재단',20000]];
+  ['메트라이프 ki',91900],['코주부',99100],['ki 실비',65230],['통신요금',56150],['어린이재단',20000]];
 const SROWS=[['어머님',300000],['종신보험',177000],['신한대출①',145000],['신한대출②',135000],
   ['자동차수리',200000],['차수리비',132605],['점심식비',125000],['자동차보험6765',94627],
   ['하온보험',67150],['공단상환금',61040],['통신요금',49990],['인터넷',42470],
   ['비데',20900],['화재보험',14900],['운전자보험',10000]];
 const DEF_PEOPLE=[
-  {name:'기남',initial:'기',accent:'#0066cc',salary:4000000,allowance:550000,rows:KROWS.map(r=>({name:r[0],amt:r[1]}))},
-  {name:'승국',initial:'승',accent:'#1f8a5b',salary:3931770,allowance:650000,rows:SROWS.map(r=>({name:r[0],amt:r[1]}))},
+  {name:'ki',initial:'K',accent:'#0066cc',salary:4000000,allowance:550000,rows:KROWS.map(r=>({name:r[0],amt:r[1]}))},
+  {name:'sk',initial:'S',accent:'#1f8a5b',salary:3931770,allowance:650000,rows:SROWS.map(r=>({name:r[0],amt:r[1]}))},
 ];
 const DEF_LEDGER={carry:1573826,txns:[
   {date:'6/1',name:'쿠팡 (식빵·우유)',amt:-15780},
@@ -93,9 +93,9 @@ const DEF_LEDGER={carry:1573826,txns:[
 const PLAN={income:7931770,items:[
   {name:'고정지출',amt:3264313,note:''},
   {name:'적금',amt:1000000,note:''},
-  {name:'승국 용돈',amt:650000,note:''},
+  {name:'sk 용돈',amt:650000,note:''},
   {name:'현금화 (바로쓸돈)',amt:650000,note:''},
-  {name:'기남 용돈',amt:550000,note:''},
+  {name:'ki 용돈',amt:550000,note:''},
   {name:'생활비',amt:400000,note:''},
   {name:'영어학원',amt:400000,note:'5·6월 완료'},
   {name:'탑산 방과후',amt:345780,note:'한자·교재'},
@@ -122,6 +122,8 @@ const st={
   ledger: sv.ledger||JSON.parse(JSON.stringify(DEF_LEDGER)),
   draft: {date:'',name:'',inc:'',exp:''},
 };
+if(st.people[0].name==='기남'){st.people[0].name='ki';st.people[0].initial='K';}
+if(st.people[1].name==='승국'){st.people[1].name='sk';st.people[1].initial='S';}
 
 /* ── Helpers ───────────────────────────────────────────────────────── */
 const fmt = n => Math.round(n||0).toLocaleString('ko-KR');
@@ -184,7 +186,7 @@ const drawCharts = () => {
   const tick=dark?'#aeaeb2':'#86868b', grid=dark?'rgba(255,255,255,.08)':'rgba(0,0,0,.06)';
   const dc=document.getElementById('kb-donut');
   if(dc){if(_dn)_dn.destroy();
-    _dn=new Chart(dc,{type:'doughnut',data:{labels:['기남','승국'],datasets:[{data:[pFixed(st.people[0]),pFixed(st.people[1])],backgroundColor:[acc,'#1f8a5b'],borderWidth:0}]},
+    _dn=new Chart(dc,{type:'doughnut',data:{labels:['ki','sk'],datasets:[{data:[pFixed(st.people[0]),pFixed(st.people[1])],backgroundColor:[acc,'#1f8a5b'],borderWidth:0}]},
       options:{responsive:true,maintainAspectRatio:false,cutout:'66%',plugins:{legend:{position:'bottom',labels:{color:tick,boxWidth:10,boxHeight:10,usePointStyle:true,font:{size:12}}}}}});
   }
   const bc=document.getElementById('kb-bar');
@@ -216,7 +218,7 @@ const buildSidebar = () => {
   return `<aside>
   <div style="display:flex;align-items:center;gap:10px;padding:0 8px 8px;">
     <span style="width:34px;height:34px;border-radius:9px;background:${acc};color:#fff;display:flex;align-items:center;justify-content:center;font:600 17px/1 var(--font-d);">₩</span>
-    <div><div style="font:600 15px/1.1 var(--font-d);">공동 가계부</div><div style="font:400 11px/1.2 var(--font-t);color:var(--muted);">2026 · 기남·승국·하온</div></div>
+    <div><div style="font:600 15px/1.1 var(--font-d);">공동 가계부</div><div style="font:400 11px/1.2 var(--font-t);color:var(--muted);">2026 · ki·sk·하온</div></div>
   </div>
   <div style="font:600 10px/1 var(--font-t);color:var(--muted);letter-spacing:.07em;text-transform:uppercase;padding:16px 8px 8px;">월 선택</div>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:0 4px;">${pills}</div>
@@ -286,7 +288,7 @@ const buildDash = () => {
     <span style="font:400 15px/1 var(--font-t);color:var(--muted);">${MN[st.month]} 기준</span>
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(184px,1fr));gap:14px;margin-bottom:16px;">
-    ${statCard('두 사람 총 수입',fmt(totInc)+'원',`기남 ${fmt(st.people[0].salary)} + 승국 ${fmt(st.people[1].salary)}`,'var(--green)')}
+    ${statCard('두 사람 총 수입',fmt(totInc)+'원',`ki ${fmt(st.people[0].salary)} + sk ${fmt(st.people[1].salary)}`,'var(--green)')}
     ${statCard('총 고정지출',fmt(totFixed)+'원','두 사람 고정비 합계','var(--red)')}
     ${statCard('생활비 통장 합계',fmt(totAcc)+'원','매달 공동 통장으로',acc)}
     ${statCard('공동 통장 잔액',fmt(bal)+'원',MN[st.month]+' 현재','var(--text)')}
@@ -362,7 +364,7 @@ const buildDash = () => {
     </div>
     <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
       <div style="font:600 16px/1 var(--font-d);margin-bottom:4px;">고정지출 구성</div>
-      <div style="font:400 12px/1 var(--font-t);color:var(--muted);margin-bottom:10px;">기남 · 승국 분담 비율</div>
+      <div style="font:400 12px/1 var(--font-t);color:var(--muted);margin-bottom:10px;">ki · sk 분담 비율</div>
       <div style="position:relative;height:230px;"><canvas id="kb-donut"></canvas></div>
     </div>
   </div>
