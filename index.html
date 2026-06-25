@@ -117,6 +117,7 @@ const st={
   accent: '#0066cc',
   incOv: sv.incOv||{},
   alOv: sv.alOv||{},
+  cardOv: sv.cardOv||{},
   people: (sv.people&&sv.people.length===2)?sv.people:JSON.parse(JSON.stringify(DEF_PEOPLE)),
   ledger: sv.ledger||JSON.parse(JSON.stringify(DEF_LEDGER)),
   draft: {date:'',name:'',inc:'',exp:''},
@@ -128,10 +129,11 @@ const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
 const pFixed = p => p.rows.reduce((a,r)=>a+(+r.amt||0),0);
 const mDeposit = m => {
   const M=MONTHS[m], inc=st.incOv[m]!=null?st.incOv[m]:M.income, al=st.alOv[m]!=null?st.alOv[m]:M.allowance;
-  return inc - M.fixed - M.cards.h - M.cards.s - M.cards.k - al;
+  const cards=st.people.reduce((a,_,pi)=>a+(st.cardOv[m]?.[pi]||0),0);
+  return inc - M.fixed - cards - al;
 };
 const persist = () => {
-  try{localStorage.setItem('kb-v1',JSON.stringify({page:st.page,month:st.month,dark:st.dark,incOv:st.incOv,alOv:st.alOv,people:st.people,ledger:st.ledger}));}catch(e){}
+  try{localStorage.setItem('kb-v1',JSON.stringify({page:st.page,month:st.month,dark:st.dark,incOv:st.incOv,alOv:st.alOv,cardOv:st.cardOv,people:st.people,ledger:st.ledger}));}catch(e){}
   fbWrite();
 };
 
@@ -141,7 +143,7 @@ const fbWrite = () => {
   _synced = false;
   _wt = setTimeout(()=>{
     fetch(_fbUrl+'/kb.json',{method:'PUT',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({month:st.month,dark:st.dark,incOv:st.incOv,alOv:st.alOv,people:st.people,ledger:st.ledger,_dev:DEVICE_ID})
+      body:JSON.stringify({month:st.month,dark:st.dark,incOv:st.incOv,alOv:st.alOv,cardOv:st.cardOv,people:st.people,ledger:st.ledger,_dev:DEVICE_ID})
     }).then(()=>{_synced=true;}).catch(()=>{_synced=false;});
   },800);
 };
@@ -351,12 +353,12 @@ const buildDash = () => {
 const buildFixed = () => {
   const totInc=st.people.reduce((a,p)=>a+(+p.salary||0),0);
   const totFixed=st.people.reduce((a,p)=>a+pFixed(p),0);
-  const totAcc=st.people.reduce((a,p)=>a+((+p.salary||0)-pFixed(p)-(+p.allowance||0)),0);
+  const totAcc=st.people.reduce((a,p,pi)=>a+((+p.salary||0)-pFixed(p)-(+p.allowance||0)-(st.cardOv[st.month]?.[pi]||0)),0);
   const cards=st.people.map((p,pi)=>{
-    const fx=pFixed(p), toAcc=(+p.salary||0)-fx-(+p.allowance||0);
+    const card=st.cardOv[st.month]?.[pi]||0, fx=pFixed(p), toAcc=(+p.salary||0)-fx-(+p.allowance||0)-card;
     const rows=p.rows.map((r,ri)=>`
       <div class="erow" style="display:flex;align-items:center;gap:8px;padding:5px 14px 5px 20px;border-bottom:1px solid var(--line);">
-        <input class="kb-ghost" type="text" id="pn${pi}r${ri}" value="${esc(r.name)}" oninput="App.editRowName(${pi},${ri},this.value)" style="flex:1;min-width:0;font-size:14px;">
+        <input class="kb-ghost" type="text" id="pn${pi}r${ri}" value="${esc(r.name)}" oninput="App.editRowName(${pi},${ri},this.value)" onfocus="if(this.value==='새 항목')this.select()" style="flex:1;min-width:0;font-size:14px;">
         <input class="kb-ghost" type="number" id="pa${pi}r${ri}" value="${r.amt}" oninput="App.editRowAmt(${pi},${ri},this.value)" style="width:96px;text-align:right;font-size:14px;font-weight:500;color:var(--red);font-variant-numeric:tabular-nums;">
         <button onclick="App.delRow(${pi},${ri})" class="del" style="background:transparent;color:var(--muted);font-size:15px;padding:2px 4px;">✕</button>
       </div>`).join('');
@@ -380,6 +382,10 @@ const buildFixed = () => {
         <label style="flex:1;display:flex;flex-direction:column;gap:4px;">
           <span style="font:400 11px/1 var(--font-t);color:var(--muted);">용돈</span>
           <input class="kb-in" type="number" id="pal${pi}" value="${p.allowance}" oninput="App.editPerson(${pi},'allowance',this.value)" style="text-align:right;width:100%;">
+        </label>
+        <label style="flex:1;display:flex;flex-direction:column;gap:4px;">
+          <span style="font:400 11px/1 var(--font-t);color:var(--muted);">카드값</span>
+          <input class="kb-in" type="number" id="pc${pi}" value="${card}" oninput="App.editCard(${pi},this.value)" style="text-align:right;color:var(--red);width:100%;">
         </label>
       </div>
       <div>${rows}</div>
@@ -520,7 +526,7 @@ const render = () => {
   const page={dash:buildDash,fixed:buildFixed,shared:buildShared,plan:buildPlan}[st.page]||buildDash;
   root.innerHTML=buildSidebar()+`<main>${page()}</main>`;
 
-  if(_fid){const el=document.getElementById(_fid);if(el){el.focus();try{el.setSelectionRange(_fss,_fse);}catch(e){}}}
+  if(_fid){const el=document.getElementById(_fid);if(el){el.focus();if(el.type==='number'){const v=el.value;el.value='';el.value=v;}else{try{el.setSelectionRange(_fss,_fse);}catch(e){}}}}
   drawCharts();
   persist();
 };
@@ -540,6 +546,7 @@ window.App={
   editPerson(pi,field,v){st.people[pi][field]=v===''?0:(parseInt(v,10)||0);render();},
   editRowName(pi,ri,v){st.people[pi].rows[ri].name=v;persist();},
   editRowAmt(pi,ri,v){st.people[pi].rows[ri].amt=v===''?0:(parseInt(v,10)||0);render();},
+  editCard(pi,v){if(!st.cardOv[st.month])st.cardOv[st.month]={};st.cardOv[st.month][pi]=v===''?0:(parseInt(v,10)||0);render();},
   addRow(pi){st.people[pi].rows.push({name:'새 항목',amt:0});render();},
   delRow(pi,ri){st.people[pi].rows.splice(ri,1);render();},
 
