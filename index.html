@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>공동 가계부 2026</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --font-d: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  --font-t: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  --bg:#f5f5f7; --card:#fff; --text:#1d1d1f; --muted:#86868b; --sub:#515154;
+  --line:rgba(0,0,0,.09); --chip:#f5f5f7; --green:#1f8a5b; --red:#d70015;
+  --sidebar:#fff; --accent:#0066cc;
+}
+[data-theme=dark] {
+  --bg:#000; --card:#1c1c1e; --text:#f5f5f7; --muted:#8e8e93; --sub:#aeaeb2;
+  --line:rgba(255,255,255,.13); --chip:#2c2c2e; --green:#30d158; --red:#ff453a;
+  --sidebar:#161618;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:400 15px/1.5 var(--font-t);letter-spacing:-.2px}
+button{cursor:pointer;font-family:var(--font-t);border:0}
+input{font-family:var(--font-t)}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.tnum{font-variant-numeric:tabular-nums;white-space:nowrap}
+.kb-in{background:var(--chip);border:1px solid var(--line);border-radius:9px;
+  padding:7px 10px;font:400 14px/1.2 var(--font-t);color:var(--text);outline:none}
+.kb-in:focus{border-color:var(--accent)}
+.kb-ghost{background:transparent;border:none;outline:none;font-family:var(--font-t);color:var(--text)}
+.erow .del{opacity:0;transition:opacity .12s}
+.erow:hover .del{opacity:1}
+#root{display:flex;min-height:100vh}
+aside{width:240px;flex-shrink:0;background:var(--sidebar);border-right:1px solid var(--line);
+  position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:22px 14px;overflow-y:auto}
+main{flex:1;min-width:0;padding:28px 34px 64px;overflow-y:auto;height:100vh}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+  background:var(--text);color:var(--card);padding:10px 20px;border-radius:9999px;
+  font:500 14px/1 var(--font-t);z-index:999;box-shadow:0 6px 24px rgba(0,0,0,.2);
+  pointer-events:none;opacity:0;transition:opacity .2s}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="toast"></div>
+<script>
+(function(){
+'use strict';
+
+/* ── Firebase ──────────────────────────────────────────────────────── */
+const DEVICE_ID = Math.random().toString(36).slice(2);
+let _fbUrl = (localStorage.getItem('kb-fb-url')||'').trim().replace(/\/$/,'');
+let _sse = null, _synced = false, _wt = null;
+
+/* ── Constants ─────────────────────────────────────────────────────── */
+const MN = ['','1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+const MONTHS = {
+  1:{income:3994210,fixed:1691230,cards:{h:306791,s:266124,k:143170},allowance:650000},
+  2:{income:4025110,fixed:1061520,cards:{h:297268,s:266124,k:0},allowance:650000},
+  3:{income:3927700,fixed:1277560,cards:{h:283172,s:259705,k:0},allowance:650000},
+  4:{income:3931770,fixed:1277560,cards:{h:232825,s:259705,k:0},allowance:650000},
+  5:{income:3975780,fixed:1277560,cards:{h:0,s:257840,k:0},allowance:650000},
+  6:{income:3975780,fixed:1077560,cards:{h:70800,s:130000,k:0},allowance:650000},
+  7:{income:3975780,fixed:1077560,cards:{h:0,s:0,k:0},allowance:650000},
+  8:{income:3975780,fixed:1077560,cards:{h:0,s:0,k:0},allowance:650000},
+  9:{income:3975780,fixed:1077560,cards:{h:0,s:0,k:0},allowance:650000},
+  10:{income:3975780,fixed:1077560,cards:{h:0,s:0,k:0},allowance:650000},
+  11:{income:3975780,fixed:1077560,cards:{h:0,s:0,k:0},allowance:650000},
+  12:{income:3975780,fixed:1077560,cards:{h:0,s:0,k:0},allowance:650000},
+};
+const KROWS=[['점심값',264000],['관리비',320000],['하온 돌봄비',500000],['메트라이프 하온',200000],
+  ['메트라이프 기남',91900],['코주부',99100],['기남 실비',65230],['통신요금',56150],['어린이재단',20000]];
+const SROWS=[['어머님',300000],['종신보험',177000],['신한대출①',145000],['신한대출②',135000],
+  ['자동차수리',200000],['차수리비',132605],['점심식비',125000],['자동차보험6765',94627],
+  ['하온보험',67150],['공단상환금',61040],['통신요금',49990],['인터넷',42470],
+  ['비데',20900],['화재보험',14900],['운전자보험',10000]];
+const DEF_PEOPLE=[
+  {name:'기남',initial:'기',accent:'#0066cc',salary:4000000,allowance:550000,rows:KROWS.map(r=>({name:r[0],amt:r[1]}))},
+  {name:'승국',initial:'승',accent:'#1f8a5b',salary:3931770,allowance:650000,rows:SROWS.map(r=>({name:r[0],amt:r[1]}))},
+];
+const DEF_LEDGER={carry:1573826,txns:[
+  {date:'6/1',name:'쿠팡 (식빵·우유)',amt:-15780},
+  {date:'6/3',name:'연지네서 피자',amt:-39800},
+  {date:'6/4',name:'모네 미술',amt:-120000},
+  {date:'6/8',name:'태권도',amt:-150000},
+  {date:'6/8',name:'캐시백',amt:300},
+  {date:'6/9',name:'쿠팡 (요거트·루꼴라)',amt:-16440},
+  {date:'6/13',name:'쿠팡 (하온 손목시계)',amt:-10900},
+]};
+const PLAN={income:7931770,items:[
+  {name:'고정지출',amt:3264313,note:''},
+  {name:'적금',amt:1000000,note:''},
+  {name:'승국 용돈',amt:650000,note:''},
+  {name:'현금화 (바로쓸돈)',amt:650000,note:''},
+  {name:'기남 용돈',amt:550000,note:''},
+  {name:'생활비',amt:400000,note:''},
+  {name:'영어학원',amt:400000,note:'5·6월 완료'},
+  {name:'탑산 방과후',amt:345780,note:'한자·교재'},
+  {name:'태권도',amt:150000,note:''},
+  {name:'미술',amt:120000,note:''},
+  {name:'웅진',amt:117000,note:''},
+]};
+const CASH_FIXED=[['하온 교정비',50000],['경조사비',150000],['엔진오일',50000],
+  ['자동차보험',100000],['자동차세',50000],['재산세',50000],['여행비',100000],['십일조',100000]];
+const PCOLS=['#0066cc','#34c759','#5e9eff','#ff9f0a','#5ac8fa','#bf5af2','#ff453a','#ffb340','#30b0c7','#a1a1a6','#8e8e93'];
+
+/* ── State ─────────────────────────────────────────────────────────── */
+let sv={};
+try{sv=JSON.parse(localStorage.getItem('kb-v1')||'{}');}catch(e){}
+const st={
+  page: sv.page||'dash',
+  month: sv.month||6,
+  dark: sv.dark||false,
+  accent: '#0066cc',
+  incOv: sv.incOv||{},
+  alOv: sv.alOv||{},
+  people: (sv.people&&sv.people.length===2)?sv.people:JSON.parse(JSON.stringify(DEF_PEOPLE)),
+  ledger: sv.ledger||JSON.parse(JSON.stringify(DEF_LEDGER)),
+  draft: {date:'',name:'',inc:'',exp:''},
+};
+
+/* ── Helpers ───────────────────────────────────────────────────────── */
+const fmt = n => Math.round(n||0).toLocaleString('ko-KR');
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const pFixed = p => p.rows.reduce((a,r)=>a+(+r.amt||0),0);
+const mDeposit = m => {
+  const M=MONTHS[m], inc=st.incOv[m]!=null?st.incOv[m]:M.income, al=st.alOv[m]!=null?st.alOv[m]:M.allowance;
+  return inc - M.fixed - M.cards.h - M.cards.s - M.cards.k - al;
+};
+const persist = () => {
+  try{localStorage.setItem('kb-v1',JSON.stringify({page:st.page,month:st.month,dark:st.dark,incOv:st.incOv,alOv:st.alOv,people:st.people,ledger:st.ledger}));}catch(e){}
+  fbWrite();
+};
+
+const fbWrite = () => {
+  if(!_fbUrl) return;
+  clearTimeout(_wt);
+  _synced = false;
+  _wt = setTimeout(()=>{
+    fetch(_fbUrl+'/kb.json',{method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({month:st.month,dark:st.dark,incOv:st.incOv,alOv:st.alOv,people:st.people,ledger:st.ledger,_dev:DEVICE_ID})
+    }).then(()=>{_synced=true;}).catch(()=>{_synced=false;});
+  },800);
+};
+
+const fbConnect = () => {
+  if(!_fbUrl) return;
+  if(_sse){_sse.close();_sse=null;}
+  _synced=false;
+  _sse=new EventSource(_fbUrl+'/kb.json');
+  _sse.addEventListener('put',e=>{
+    try{
+      const payload=JSON.parse(e.data);
+      if(!payload.data){_synced=true;render();return;}
+      const remote=payload.data;
+      if(remote._dev===DEVICE_ID){_synced=true;render();return;}
+      const {_dev,...data}=remote;
+      Object.assign(st,data);
+      if(!st.draft)st.draft={date:'',name:'',inc:'',exp:''};
+      _synced=true; render();
+    }catch(ex){}
+  });
+  _sse.onerror=()=>{_synced=false;};
+};
+let _tt;
+const toast = msg => {
+  const el=document.getElementById('toast');
+  if(!el)return;
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),1800);
+};
+
+/* ── Charts ────────────────────────────────────────────────────────── */
+let _dn=null, _br=null;
+const drawCharts = () => {
+  if(st.page!=='dash') return;
+  if(!window.Chart){setTimeout(drawCharts,200);return;}
+  const dark=st.dark, acc=st.accent;
+  const tick=dark?'#aeaeb2':'#86868b', grid=dark?'rgba(255,255,255,.08)':'rgba(0,0,0,.06)';
+  const dc=document.getElementById('kb-donut');
+  if(dc){if(_dn)_dn.destroy();
+    _dn=new Chart(dc,{type:'doughnut',data:{labels:['기남','승국'],datasets:[{data:[pFixed(st.people[0]),pFixed(st.people[1])],backgroundColor:[acc,'#1f8a5b'],borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'66%',plugins:{legend:{position:'bottom',labels:{color:tick,boxWidth:10,boxHeight:10,usePointStyle:true,font:{size:12}}}}}});
+  }
+  const bc=document.getElementById('kb-bar');
+  if(bc){if(_br)_br.destroy();
+    const data=[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>mDeposit(m));
+    _br=new Chart(bc,{type:'bar',data:{labels:MN.slice(1),datasets:[{data,backgroundColor:data.map((_,i)=>(i+1)===st.month?acc:(dark?'#3a3a3c':'#d6e4f5')),borderRadius:5,maxBarThickness:32}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.raw)+'원'}}},
+        scales:{x:{ticks:{color:tick,font:{size:12}},grid:{display:false}},y:{ticks:{color:tick,font:{size:11},callback:v=>(v/10000)+'만'},grid:{color:grid}}}}});
+  }
+};
+
+/* ── SVG icons ─────────────────────────────────────────────────────── */
+const ICO={
+  dash:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`,
+  fixed:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="3.5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="3.5" cy="18" r="1.2" fill="currentColor" stroke="none"/></svg>`,
+  shared:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3h14v18l-2.5-1.6L14 21l-2-1.5L10 21l-2.5-1.6L5 21z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="13" y2="12"/></svg>`,
+  plan:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>`,
+  dl:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>`,
+};
+
+/* ── Build sidebar ─────────────────────────────────────────────────── */
+const buildSidebar = () => {
+  const acc=st.accent;
+  const pills=[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>{
+    const on=n===st.month;
+    return `<button onclick="App.setMonth(${n})" style="border:1px solid ${on?acc:'var(--line)'};padding:7px 0;border-radius:9px;font:600 13px/1 var(--font-d);background:${on?acc:'transparent'};color:${on?'#fff':'var(--text)'};transition:all .14s;">${MN[n]}</button>`;
+  }).join('');
+  const nav=(key,label,ico,fn)=>{const on=st.page===key;return `<button onclick="App.${fn}()" style="display:flex;align-items:center;gap:11px;width:100%;padding:9px 12px;border-radius:10px;font:500 14px/1 var(--font-t);text-align:left;background:${on?acc:'transparent'};color:${on?'#fff':'var(--muted)'};transition:all .14s;">${ico}${label}</button>`;};
+  return `<aside>
+  <div style="display:flex;align-items:center;gap:10px;padding:0 8px 8px;">
+    <span style="width:34px;height:34px;border-radius:9px;background:${acc};color:#fff;display:flex;align-items:center;justify-content:center;font:600 17px/1 var(--font-d);">₩</span>
+    <div><div style="font:600 15px/1.1 var(--font-d);">공동 가계부</div><div style="font:400 11px/1.2 var(--font-t);color:var(--muted);">2026 · 기남·승국·하온</div></div>
+  </div>
+  <div style="font:600 10px/1 var(--font-t);color:var(--muted);letter-spacing:.07em;text-transform:uppercase;padding:16px 8px 8px;">월 선택</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:0 4px;">${pills}</div>
+  <div style="font:600 10px/1 var(--font-t);color:var(--muted);letter-spacing:.07em;text-transform:uppercase;padding:20px 8px 8px;">메뉴</div>
+  <nav style="display:flex;flex-direction:column;gap:3px;padding:0 2px;">
+    ${nav('dash','대시보드',ICO.dash,'goDash')}
+    ${nav('fixed','고정지출',ICO.fixed,'goFixed')}
+    ${nav('shared','공동생활비',ICO.shared,'goShared')}
+    ${nav('plan','계획',ICO.plan,'goPlan')}
+  </nav>
+  <div style="margin-top:10px;padding:9px 12px;background:var(--chip);border-radius:10px;">
+    ${_fbUrl
+      ? `<div style="display:flex;align-items:center;justify-content:space-between;">
+           <span style="display:flex;align-items:center;gap:6px;font:500 12px/1 var(--font-t);">
+             <span style="font-size:8px;color:${_synced?'var(--green)':'var(--muted)'};">●</span>
+             <span>${_synced?'동기화됨':'연결 중...'}</span>
+           </span>
+           <button onclick="App.fbDisconnect()" style="border:0;background:transparent;font:400 11px/1 var(--font-t);color:var(--muted);">해제</button>
+         </div>`
+      : `<button onclick="App.fbSetup()" style="width:100%;border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:8px;padding:7px;font:500 12px/1 var(--font-t);">⚡ Firebase 동기화</button>`
+    }
+  </div>
+  <div style="flex:1;"></div>
+  <div style="display:flex;flex-direction:column;gap:7px;padding:12px 4px 0;border-top:1px solid var(--line);">
+    <button onclick="App.toggleDark()" style="display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:8px 12px;border-radius:10px;font:500 13px/1 var(--font-t);background:var(--chip);color:var(--text);">
+      <span>${st.dark?'라이트 모드':'다크 모드'}</span><span style="font-size:15px;">${st.dark?'☀️':'🌙'}</span>
+    </button>
+    <button onclick="App.exportJSON()" style="display:flex;align-items:center;gap:9px;width:100%;padding:8px 12px;border-radius:10px;font:500 13px/1 var(--font-t);background:transparent;color:var(--muted);">
+      ${ICO.dl}JSON 내보내기
+    </button>
+  </div>
+</aside>`;
+};
+
+/* ── Dashboard ─────────────────────────────────────────────────────── */
+const buildDash = () => {
+  const M=MONTHS[st.month], acc=st.accent;
+  const income=st.incOv[st.month]!=null?st.incOv[st.month]:M.income;
+  const allowance=st.alOv[st.month]!=null?st.alOv[st.month]:M.allowance;
+  const cards=M.cards.h+M.cards.s+M.cards.k;
+  const toDeposit=income-M.fixed-cards-allowance;
+  const totInc=st.people.reduce((a,p)=>a+(+p.salary||0),0);
+  const totFixed=st.people.reduce((a,p)=>a+pFixed(p),0);
+  const totAcc=st.people.reduce((a,p)=>a+((+p.salary||0)-pFixed(p)-(+p.allowance||0)),0);
+  let bal=+st.ledger.carry||0; st.ledger.txns.forEach(t=>bal+=t.amt);
+
+  const statCard=(label,val,sub,color)=>`
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;">
+      <div style="font:500 12px/1 var(--font-t);color:var(--muted);margin-bottom:7px;">${label}</div>
+      <div class="tnum" style="font:600 23px/1 var(--font-d);letter-spacing:-.5px;color:${color};">${val}</div>
+      <div style="font:400 11.5px/1.3 var(--font-t);color:var(--muted);margin-top:5px;">${sub}</div>
+    </div>`;
+
+  const seg=(v,color)=>{const w=income>0?Math.max(0,v/income*100).toFixed(2):0;return `<div style="width:${w}%;background:${color};height:100%;"></div>`;};
+
+  const recent=st.ledger.txns.slice(-6).reverse().map(t=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);">
+      <span style="font:400 12px/1 var(--font-t);color:var(--muted);width:34px;flex-shrink:0;">${esc(t.date)}</span>
+      <span style="flex:1;font:400 14px/1.2 var(--font-t);">${esc(t.name)}</span>
+      <span class="tnum" style="font:600 14px/1 var(--font-t);color:${t.amt<0?'var(--red)':'var(--green)'};">${t.amt<0?'−':'+'}${fmt(Math.abs(t.amt))}</span>
+    </div>`).join('');
+
+  return `<div>
+  <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:20px;">
+    <span style="font:600 28px/1.1 var(--font-d);letter-spacing:-.5px;">대시보드</span>
+    <span style="font:400 15px/1 var(--font-t);color:var(--muted);">${MN[st.month]} 기준</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(184px,1fr));gap:14px;margin-bottom:16px;">
+    ${statCard('두 사람 총 수입',fmt(totInc)+'원',`기남 ${fmt(st.people[0].salary)} + 승국 ${fmt(st.people[1].salary)}`,'var(--green)')}
+    ${statCard('총 고정지출',fmt(totFixed)+'원','두 사람 고정비 합계','var(--red)')}
+    ${statCard('생활비 통장 합계',fmt(totAcc)+'원','매달 공동 통장으로',acc)}
+    ${statCard('공동 통장 잔액',fmt(bal)+'원',MN[st.month]+' 현재','var(--text)')}
+  </div>
+  <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:16px;margin-bottom:16px;">
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;">
+        <span style="font:600 16px/1 var(--font-d);">내 월급 계산기</span>
+        <span style="font:400 12px/1 var(--font-t);color:var(--muted);">${MN[st.month]}</span>
+      </div>
+      <div style="font:400 12px/1.4 var(--font-t);color:var(--muted);margin-bottom:16px;">월급에서 고정비·카드값·용돈을 빼고 생활비 통장으로 보낼 금액</div>
+      <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);">
+        <span style="font:400 14px/1 var(--font-t);white-space:nowrap;">월급 (입금액)</span>
+        <span style="display:inline-flex;align-items:baseline;gap:4px;">
+          <input id="ci" class="kb-ghost" type="number" value="${income}" oninput="App.onIncome(this.value)"
+            style="width:118px;text-align:right;border-bottom:2px solid ${acc};font:600 17px/1.2 var(--font-t);color:${acc};padding:2px 0;font-variant-numeric:tabular-nums;">
+          <span style="color:var(--muted);font-size:13px;">원</span>
+        </span>
+      </label>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);">
+        <span style="font:400 14px/1 var(--font-t);color:var(--sub);">− 고정비 <span style="color:var(--muted);font-size:12px;">카드 제외</span></span>
+        <span class="tnum" style="font:600 15px/1 var(--font-t);">${fmt(M.fixed)}원</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);">
+        <span style="font:400 14px/1 var(--font-t);color:var(--sub);">− 카드값</span>
+        <span class="tnum" style="font:600 15px/1 var(--font-t);">${fmt(cards)}원</span>
+      </div>
+      <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:2px solid var(--text);">
+        <span style="font:400 14px/1 var(--font-t);color:var(--sub);">− 용돈</span>
+        <span style="display:inline-flex;align-items:baseline;gap:4px;">
+          <input id="ca" class="kb-ghost" type="number" value="${allowance}" oninput="App.onAllowance(this.value)"
+            style="width:110px;text-align:right;border-bottom:1px dashed var(--muted);font:600 15px/1.2 var(--font-t);padding:2px 0;font-variant-numeric:tabular-nums;">
+          <span style="color:var(--muted);font-size:13px;">원</span>
+        </span>
+      </label>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0 0;">
+        <span style="font:600 15px/1 var(--font-t);">= 입금할 돈</span>
+        <span class="tnum" style="font:600 22px/1 var(--font-d);color:${acc};">${fmt(toDeposit)}원</span>
+      </div>
+      <div style="margin-top:16px;height:12px;border-radius:9999px;overflow:hidden;display:flex;background:var(--chip);">
+        ${seg(M.fixed,'#5e9eff')}${seg(cards,'#ff9f0a')}${seg(allowance,'#bf5af2')}${seg(Math.max(0,toDeposit),'#34c759')}
+      </div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
+      <div style="font:600 16px/1 var(--font-d);margin-bottom:4px;">고정지출 구성</div>
+      <div style="font:400 12px/1 var(--font-t);color:var(--muted);margin-bottom:10px;">기남 · 승국 분담 비율</div>
+      <div style="position:relative;height:230px;"><canvas id="kb-donut"></canvas></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:16px;">
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
+      <div style="font:600 16px/1 var(--font-d);margin-bottom:4px;">월별 입금할 돈</div>
+      <div style="font:400 12px/1 var(--font-t);color:var(--muted);margin-bottom:12px;">1월 ~ 12월 추이</div>
+      <div style="position:relative;height:220px;"><canvas id="kb-bar"></canvas></div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
+      <div style="font:600 16px/1 var(--font-d);margin-bottom:12px;">최근 공동 거래</div>
+      ${recent||'<div style="color:var(--muted);font-size:14px;">거래 없음</div>'}
+    </div>
+  </div>
+</div>`;
+};
+
+/* ── Fixed ─────────────────────────────────────────────────────────── */
+const buildFixed = () => {
+  const totInc=st.people.reduce((a,p)=>a+(+p.salary||0),0);
+  const totFixed=st.people.reduce((a,p)=>a+pFixed(p),0);
+  const totAcc=st.people.reduce((a,p)=>a+((+p.salary||0)-pFixed(p)-(+p.allowance||0)),0);
+  const cards=st.people.map((p,pi)=>{
+    const fx=pFixed(p), toAcc=(+p.salary||0)-fx-(+p.allowance||0);
+    const rows=p.rows.map((r,ri)=>`
+      <div class="erow" style="display:flex;align-items:center;gap:8px;padding:5px 14px 5px 20px;border-bottom:1px solid var(--line);">
+        <input class="kb-ghost" type="text" id="pn${pi}r${ri}" value="${esc(r.name)}" oninput="App.editRowName(${pi},${ri},this.value)" style="flex:1;min-width:0;font-size:14px;">
+        <input class="kb-ghost" type="number" id="pa${pi}r${ri}" value="${r.amt}" oninput="App.editRowAmt(${pi},${ri},this.value)" style="width:96px;text-align:right;font-size:14px;font-weight:500;color:var(--red);font-variant-numeric:tabular-nums;">
+        <button onclick="App.delRow(${pi},${ri})" class="del" style="background:transparent;color:var(--muted);font-size:15px;padding:2px 4px;">✕</button>
+      </div>`).join('');
+    return `
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line);">
+        <span style="display:flex;align-items:center;gap:10px;">
+          <span style="width:30px;height:30px;border-radius:9999px;background:${p.accent};color:#fff;display:flex;align-items:center;justify-content:center;font:600 14px/1 var(--font-d);">${p.initial}</span>
+          <span style="font:600 16px/1 var(--font-d);">${p.name}</span>
+        </span>
+        <span style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+          <span style="font:400 11px/1 var(--font-t);color:var(--muted);">생활비 통장으로</span>
+          <span class="tnum" style="font:600 17px/1 var(--font-d);color:${p.accent};">${fmt(toAcc)}원</span>
+        </span>
+      </div>
+      <div style="display:flex;gap:10px;padding:11px 20px;border-bottom:1px solid var(--line);">
+        <label style="flex:1;display:flex;flex-direction:column;gap:4px;">
+          <span style="font:400 11px/1 var(--font-t);color:var(--muted);">급여</span>
+          <input class="kb-in" type="number" id="ps${pi}" value="${p.salary}" oninput="App.editPerson(${pi},'salary',this.value)" style="text-align:right;color:var(--green);font-weight:600;width:100%;">
+        </label>
+        <label style="flex:1;display:flex;flex-direction:column;gap:4px;">
+          <span style="font:400 11px/1 var(--font-t);color:var(--muted);">용돈</span>
+          <input class="kb-in" type="number" id="pal${pi}" value="${p.allowance}" oninput="App.editPerson(${pi},'allowance',this.value)" style="text-align:right;width:100%;">
+        </label>
+      </div>
+      <div>${rows}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 20px;">
+        <button onclick="App.addRow(${pi})" style="border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:9px;padding:6px 12px;font:500 13px/1 var(--font-t);">＋ 항목 추가</button>
+        <span style="display:flex;align-items:baseline;gap:6px;">
+          <span style="font:400 12px/1 var(--font-t);color:var(--muted);">고정지출 합</span>
+          <span class="tnum" style="font:600 16px/1 var(--font-d);">${fmt(fx)}원</span>
+        </span>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div>
+  <div style="font:600 28px/1.1 var(--font-d);letter-spacing:-.5px;margin-bottom:6px;">고정지출</div>
+  <div style="font:400 14px/1.4 var(--font-t);color:var(--muted);margin-bottom:20px;">항목·금액을 직접 수정하면 분담액과 대시보드가 자동으로 갱신됩니다</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">${cards}</div>
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 24px;">
+    <div style="font:600 15px/1 var(--font-d);margin-bottom:14px;">합산 요약</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+      <div><div style="font:400 12px/1 var(--font-t);color:var(--muted);margin-bottom:6px;">두 사람 급여</div><div class="tnum" style="font:600 20px/1 var(--font-d);color:var(--green);">${fmt(totInc)}원</div></div>
+      <div><div style="font:400 12px/1 var(--font-t);color:var(--muted);margin-bottom:6px;">총 고정지출</div><div class="tnum" style="font:600 20px/1 var(--font-d);color:var(--red);">${fmt(totFixed)}원</div></div>
+      <div><div style="font:400 12px/1 var(--font-t);color:var(--muted);margin-bottom:6px;">생활비 통장 합계</div><div class="tnum" style="font:600 20px/1 var(--font-d);color:${st.accent};">${fmt(totAcc)}원</div></div>
+    </div>
+  </div>
+</div>`;
+};
+
+/* ── Shared ────────────────────────────────────────────────────────── */
+const buildShared = () => {
+  let bal=+st.ledger.carry||0, tin=bal, tout=0;
+  const rows=st.ledger.txns.map((t,i)=>{
+    const inc=t.amt>0?t.amt:0, exp=t.amt<0?-t.amt:0;
+    bal+=t.amt; tin+=inc; tout+=exp;
+    return `<div class="erow" style="display:grid;grid-template-columns:60px 1fr 100px 100px 110px 30px;align-items:center;padding:8px 20px;border-bottom:1px solid var(--line);">
+      <span style="font:400 12px/1 var(--font-t);color:var(--muted);">${esc(t.date)}</span>
+      <span style="font:400 14px/1.2 var(--font-t);">${esc(t.name)}</span>
+      <span class="tnum" style="text-align:right;font:500 13.5px/1 var(--font-t);color:var(--green);">${inc?fmt(inc):'–'}</span>
+      <span class="tnum" style="text-align:right;font:500 13.5px/1 var(--font-t);color:var(--red);">${exp?fmt(exp):'–'}</span>
+      <span class="tnum" style="text-align:right;font:600 13.5px/1 var(--font-t);">${fmt(bal)}</span>
+      <button onclick="App.delTxn(${i})" class="del" style="background:transparent;color:var(--muted);font-size:14px;justify-self:end;">✕</button>
+    </div>`;
+  }).join('');
+  const d=st.draft;
+  return `<div>
+  <div style="font:600 28px/1.1 var(--font-d);letter-spacing:-.5px;margin-bottom:6px;">공동생활비</div>
+  <div style="font:400 14px/1.4 var(--font-t);color:var(--muted);margin-bottom:20px;">생활비 통장의 이월·수입·지출을 기록하면 잔액이 자동 계산됩니다</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;">
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;"><div style="font:500 12px/1 var(--font-t);color:var(--muted);margin-bottom:7px;">총 수입 (이월 포함)</div><div class="tnum" style="font:600 22px/1 var(--font-d);color:var(--green);">${fmt(tin)}원</div></div>
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;"><div style="font:500 12px/1 var(--font-t);color:var(--muted);margin-bottom:7px;">총 지출</div><div class="tnum" style="font:600 22px/1 var(--font-d);color:var(--red);">${fmt(tout)}원</div></div>
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;"><div style="font:500 12px/1 var(--font-t);color:var(--muted);margin-bottom:7px;">남은 잔액</div><div class="tnum" style="font:600 22px/1 var(--font-d);color:${st.accent};">${fmt(bal)}원</div></div>
+  </div>
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);">
+      <label style="display:flex;align-items:center;gap:8px;">
+        <span style="font:500 13px/1 var(--font-t);color:var(--muted);">이월 금액</span>
+        <input class="kb-in" type="number" id="lc" value="${st.ledger.carry}" oninput="App.onCarry(this.value)" style="width:140px;text-align:right;font-weight:600;">
+      </label>
+      <span style="font:400 12px/1 var(--font-t);color:var(--muted);">${st.ledger.txns.length}건의 거래</span>
+    </div>
+    <div style="display:grid;grid-template-columns:60px 1fr 100px 100px 110px 30px;padding:9px 20px;border-bottom:1px solid var(--line);font:600 10.5px/1 var(--font-t);color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">
+      <span>날짜</span><span>내용</span><span style="text-align:right;">수입</span><span style="text-align:right;">지출</span><span style="text-align:right;">잔액</span><span></span>
+    </div>
+    ${rows}
+    <div style="display:grid;grid-template-columns:60px 1fr 100px 100px 34px;gap:8px;align-items:center;padding:11px 20px;background:var(--chip);">
+      <input class="kb-in" type="text" id="dd" value="${esc(d.date)}" oninput="App.editDraft('date',this.value)" placeholder="6/15" style="font-size:13px;">
+      <input class="kb-in" type="text" id="dn" value="${esc(d.name)}" oninput="App.editDraft('name',this.value)" placeholder="내용" style="font-size:13px;">
+      <input class="kb-in" type="number" id="di" value="${d.inc}" oninput="App.editDraft('inc',this.value)" placeholder="수입" style="font-size:13px;text-align:right;color:var(--green);">
+      <input class="kb-in" type="number" id="de" value="${d.exp}" oninput="App.editDraft('exp',this.value)" placeholder="지출" style="font-size:13px;text-align:right;color:var(--red);">
+      <button onclick="App.addTxn()" style="background:${st.accent};color:#fff;border-radius:9px;height:34px;font:600 16px/1 var(--font-t);width:100%;">＋</button>
+    </div>
+  </div>
+</div>`;
+};
+
+/* ── Plan ──────────────────────────────────────────────────────────── */
+const buildPlan = () => {
+  const pmax=Math.max(...PLAN.items.map(i=>i.amt));
+  const ptotal=PLAN.items.reduce((a,i)=>a+i.amt,0);
+  const ctotal=CASH_FIXED.reduce((a,c)=>a+c[1],0);
+  const items=PLAN.items.map((it,i)=>`
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+        <span style="font:400 14px/1 var(--font-t);">${esc(it.name)} <span style="color:var(--muted);font-size:11.5px;">${esc(it.note)}</span></span>
+        <span class="tnum" style="font:600 14px/1 var(--font-t);">${fmt(it.amt)}원</span>
+      </div>
+      <div style="height:6px;border-radius:9999px;background:var(--chip);overflow:hidden;"><div style="height:100%;width:${(it.amt/pmax*100).toFixed(1)}%;background:${PCOLS[i%PCOLS.length]};"></div></div>
+    </div>`).join('');
+  const cf=CASH_FIXED.map(c=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);">
+      <span style="font:400 14px/1 var(--font-t);">${esc(c[0])}</span>
+      <span class="tnum" style="font:600 14px/1 var(--font-t);">${fmt(c[1])}원</span>
+    </div>`).join('');
+  return `<div>
+  <div style="font:600 28px/1.1 var(--font-d);letter-spacing:-.5px;margin-bottom:6px;">계획</div>
+  <div style="font:400 14px/1.4 var(--font-t);color:var(--muted);margin-bottom:20px;">두 사람 급여를 합쳐 고정지출·교육비·적금을 배분하는 반기 계획</div>
+  <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:16px;">
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;">
+        <span style="font:600 16px/1 var(--font-d);">현금화 배분</span>
+        <span class="tnum" style="font:400 13px/1 var(--font-t);color:var(--muted);">수입 ${fmt(PLAN.income)}원</span>
+      </div>
+      ${items}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:13px;border-top:2px solid var(--text);">
+        <span style="font:600 14px/1 var(--font-t);">배분 합계</span><span class="tnum" style="font:600 17px/1 var(--font-d);">${fmt(ptotal)}원</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+        <span style="font:400 13px/1 var(--font-t);color:var(--muted);">남은 돈 (→ 생활비)</span>
+        <span class="tnum" style="font:600 15px/1 var(--font-d);color:${st.accent};">${fmt(PLAN.income-ptotal)}원</span>
+      </div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;">
+        <span style="font:600 16px/1 var(--font-d);">현금화 고정지출</span>
+        <span style="font:400 12px/1 var(--font-t);color:var(--muted);">매달 적립</span>
+      </div>
+      ${cf}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:13px;padding-top:13px;border-top:2px solid var(--text);">
+        <span style="font:600 14px/1 var(--font-t);">월 적립 합계</span>
+        <span class="tnum" style="font:600 17px/1 var(--font-d);color:${st.accent};">${fmt(ctotal)}원</span>
+      </div>
+    </div>
+  </div>
+</div>`;
+};
+
+/* ── Render ────────────────────────────────────────────────────────── */
+let _fid=null, _fss=null, _fse=null;
+const render = () => {
+  const ae=document.activeElement;
+  if(ae&&ae.id&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')){_fid=ae.id;_fss=ae.selectionStart;_fse=ae.selectionEnd;}else{_fid=null;}
+
+  const root=document.getElementById('root');
+  root.dataset.theme=st.dark?'dark':'light';
+  root.style.setProperty('--accent',st.accent);
+  // also set on html for CSS var cascade
+  document.documentElement.style.setProperty('--accent',st.accent);
+
+  const page={dash:buildDash,fixed:buildFixed,shared:buildShared,plan:buildPlan}[st.page]||buildDash;
+  root.innerHTML=buildSidebar()+`<main>${page()}</main>`;
+
+  if(_fid){const el=document.getElementById(_fid);if(el){el.focus();try{el.setSelectionRange(_fss,_fse);}catch(e){}}}
+  drawCharts();
+  persist();
+};
+
+/* ── Public App ────────────────────────────────────────────────────── */
+window.App={
+  goDash(){st.page='dash';render();},
+  goFixed(){st.page='fixed';render();},
+  goShared(){st.page='shared';render();},
+  goPlan(){st.page='plan';render();},
+  setMonth(m){st.month=m;render();},
+  toggleDark(){st.dark=!st.dark;render();},
+
+  onIncome(v){st.incOv[st.month]=v===''?0:(parseInt(v,10)||0);render();},
+  onAllowance(v){st.alOv[st.month]=v===''?0:(parseInt(v,10)||0);render();},
+
+  editPerson(pi,field,v){st.people[pi][field]=v===''?0:(parseInt(v,10)||0);render();},
+  editRowName(pi,ri,v){st.people[pi].rows[ri].name=v;persist();},
+  editRowAmt(pi,ri,v){st.people[pi].rows[ri].amt=v===''?0:(parseInt(v,10)||0);render();},
+  addRow(pi){st.people[pi].rows.push({name:'새 항목',amt:0});render();},
+  delRow(pi,ri){st.people[pi].rows.splice(ri,1);render();},
+
+  onCarry(v){st.ledger.carry=v===''?0:(parseInt(v,10)||0);render();},
+  editDraft(field,v){st.draft[field]=v;persist();},
+  addTxn(){
+    const d=st.draft, inc=parseInt(d.inc,10)||0, exp=parseInt(d.exp,10)||0;
+    if(!d.name||(!inc&&!exp)){toast('내용과 금액을 입력하세요');return;}
+    st.ledger.txns.push({date:d.date||('6/'+new Date().getDate()),name:d.name,amt:inc>0?inc:-exp});
+    st.draft={date:'',name:'',inc:'',exp:''};
+    render(); toast('거래 추가됨 ✓');
+  },
+  delTxn(i){st.ledger.txns.splice(i,1);render();},
+
+  fbSetup(){
+    const url=prompt(
+      'Firebase Realtime Database URL을 입력하세요\n예) https://my-project-default-rtdb.firebaseio.com\n\n' +
+      '📌 Firebase Console → Realtime Database → 데이터 탭 상단 URL'
+    );
+    if(!url||!url.startsWith('http')){return;}
+    _fbUrl=url.trim().replace(/\/$/,'');
+    localStorage.setItem('kb-fb-url',_fbUrl);
+    fbConnect(); render();
+  },
+  fbDisconnect(){
+    if(_sse){_sse.close();_sse=null;}
+    _fbUrl=''; _synced=false;
+    localStorage.removeItem('kb-fb-url');
+    render();
+  },
+  exportJSON(){
+    try{
+      const blob=new Blob([JSON.stringify({month:st.month,incOv:st.incOv,alOv:st.alOv,people:st.people,ledger:st.ledger},null,2)],{type:'application/json'});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='가계부_2026.json';a.click();URL.revokeObjectURL(a.href);
+      toast('내보내기 완료 ✓');
+    }catch(e){toast('내보내기 실패');}
+  },
+};
+
+render();
+if(_fbUrl) fbConnect();
+})();
+</script>
+</body>
+</html>
