@@ -254,13 +254,14 @@ const buildSidebar = () => {
 /* ── Dashboard ─────────────────────────────────────────────────────── */
 const buildDash = () => {
   const M=MONTHS[st.month], acc=st.accent;
-  const income=st.incOv[st.month]!=null?st.incOv[st.month]:M.income;
-  const allowance=st.alOv[st.month]!=null?st.alOv[st.month]:M.allowance;
-  const cards=M.cards.h+M.cards.s+M.cards.k;
-  const toDeposit=income-M.fixed-cards-allowance;
+  const income=st.incOv[st.month]!=null?st.incOv[st.month]:(+st.people[0].salary||0);
+  const allowance=st.alOv[st.month]!=null?st.alOv[st.month]:(+st.people[0].allowance||0);
+  const card0=st.cardOv[st.month]?.[0]||0, card1=st.cardOv[st.month]?.[1]||0;
+  const toDeposit0=income-pFixed(st.people[0])-card0-allowance;
+  const toDeposit1=(+st.people[1].salary||0)-pFixed(st.people[1])-card1-(+st.people[1].allowance||0);
   const totInc=st.people.reduce((a,p)=>a+(+p.salary||0),0);
   const totFixed=st.people.reduce((a,p)=>a+pFixed(p),0);
-  const totAcc=st.people.reduce((a,p)=>a+((+p.salary||0)-pFixed(p)-(+p.allowance||0)),0);
+  const totAcc=st.people.reduce((a,p,pi)=>a+((+p.salary||0)-pFixed(p)-(+p.allowance||0)-(st.cardOv[st.month]?.[pi]||0)),0);
   let bal=+st.ledger.carry||0; st.ledger.txns.forEach(t=>bal+=t.amt);
 
   const statCard=(label,val,sub,color)=>`
@@ -290,43 +291,73 @@ const buildDash = () => {
     ${statCard('생활비 통장 합계',fmt(totAcc)+'원','매달 공동 통장으로',acc)}
     ${statCard('공동 통장 잔액',fmt(bal)+'원',MN[st.month]+' 현재','var(--text)')}
   </div>
-  <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:16px;margin-bottom:16px;">
-    <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
-      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;">
-        <span style="font:600 16px/1 var(--font-d);">내 월급 계산기</span>
-        <span style="font:400 12px/1 var(--font-t);color:var(--muted);">${MN[st.month]}</span>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px 20px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <span style="width:26px;height:26px;border-radius:9999px;background:${st.people[0].accent};color:#fff;display:flex;align-items:center;justify-content:center;font:600 12px/1 var(--font-d);">${st.people[0].initial}</span>
+        <span style="font:600 15px/1 var(--font-d);">${st.people[0].name} 월급 계산기</span>
       </div>
-      <div style="font:400 12px/1.4 var(--font-t);color:var(--muted);margin-bottom:16px;">월급에서 고정비·카드값·용돈을 빼고 생활비 통장으로 보낼 금액</div>
-      <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);">
-        <span style="font:400 14px/1 var(--font-t);white-space:nowrap;">월급 (입금액)</span>
-        <span style="display:inline-flex;align-items:baseline;gap:4px;">
+      <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);">
+        <span style="font:400 13px/1 var(--font-t);white-space:nowrap;">월급</span>
+        <span style="display:inline-flex;align-items:baseline;gap:3px;">
           <input id="ci" class="kb-ghost" type="number" value="${income}" oninput="App.onIncome(this.value)"
-            style="width:118px;text-align:right;border-bottom:2px solid ${acc};font:600 17px/1.2 var(--font-t);color:${acc};padding:2px 0;font-variant-numeric:tabular-nums;">
-          <span style="color:var(--muted);font-size:13px;">원</span>
+            style="width:100px;text-align:right;border-bottom:2px solid ${st.people[0].accent};font:600 15px/1.2 var(--font-t);color:${st.people[0].accent};padding:2px 0;font-variant-numeric:tabular-nums;">
+          <span style="color:var(--muted);font-size:12px;">원</span>
         </span>
       </label>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);">
-        <span style="font:400 14px/1 var(--font-t);color:var(--sub);">− 고정비 <span style="color:var(--muted);font-size:12px;">카드 제외</span></span>
-        <span class="tnum" style="font:600 15px/1 var(--font-t);">${fmt(M.fixed)}원</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);">
+        <span style="font:400 13px/1 var(--font-t);color:var(--sub);">− 고정비</span>
+        <span class="tnum" style="font:600 14px/1 var(--font-t);">${fmt(pFixed(st.people[0]))}원</span>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);">
-        <span style="font:400 14px/1 var(--font-t);color:var(--sub);">− 카드값</span>
-        <span class="tnum" style="font:600 15px/1 var(--font-t);">${fmt(cards)}원</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);">
+        <span style="font:400 13px/1 var(--font-t);color:var(--sub);">− 카드값</span>
+        <span class="tnum" style="font:600 14px/1 var(--font-t);">${fmt(card0)}원</span>
       </div>
-      <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:2px solid var(--text);">
-        <span style="font:400 14px/1 var(--font-t);color:var(--sub);">− 용돈</span>
-        <span style="display:inline-flex;align-items:baseline;gap:4px;">
+      <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:2px solid var(--text);">
+        <span style="font:400 13px/1 var(--font-t);color:var(--sub);">− 용돈</span>
+        <span style="display:inline-flex;align-items:baseline;gap:3px;">
           <input id="ca" class="kb-ghost" type="number" value="${allowance}" oninput="App.onAllowance(this.value)"
-            style="width:110px;text-align:right;border-bottom:1px dashed var(--muted);font:600 15px/1.2 var(--font-t);padding:2px 0;font-variant-numeric:tabular-nums;">
-          <span style="color:var(--muted);font-size:13px;">원</span>
+            style="width:100px;text-align:right;border-bottom:1px dashed var(--muted);font:600 14px/1.2 var(--font-t);padding:2px 0;font-variant-numeric:tabular-nums;">
+          <span style="color:var(--muted);font-size:12px;">원</span>
         </span>
       </label>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0 0;">
-        <span style="font:600 15px/1 var(--font-t);">= 입금할 돈</span>
-        <span class="tnum" style="font:600 22px/1 var(--font-d);color:${acc};">${fmt(toDeposit)}원</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0 0;">
+        <span style="font:600 14px/1 var(--font-t);">= 입금할 돈</span>
+        <span class="tnum" style="font:600 20px/1 var(--font-d);color:${st.people[0].accent};">${fmt(toDeposit0)}원</span>
       </div>
-      <div style="margin-top:16px;height:12px;border-radius:9999px;overflow:hidden;display:flex;background:var(--chip);">
-        ${seg(M.fixed,'#5e9eff')}${seg(cards,'#ff9f0a')}${seg(allowance,'#bf5af2')}${seg(Math.max(0,toDeposit),'#34c759')}
+    </div>
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px 20px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <span style="width:26px;height:26px;border-radius:9999px;background:${st.people[1].accent};color:#fff;display:flex;align-items:center;justify-content:center;font:600 12px/1 var(--font-d);">${st.people[1].initial}</span>
+        <span style="font:600 15px/1 var(--font-d);">${st.people[1].name} 월급 계산기</span>
+      </div>
+      <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);">
+        <span style="font:400 13px/1 var(--font-t);white-space:nowrap;">월급</span>
+        <span style="display:inline-flex;align-items:baseline;gap:3px;">
+          <input id="si" class="kb-ghost" type="number" value="${+st.people[1].salary||0}" oninput="App.editPerson(1,'salary',this.value)"
+            style="width:100px;text-align:right;border-bottom:2px solid ${st.people[1].accent};font:600 15px/1.2 var(--font-t);color:${st.people[1].accent};padding:2px 0;font-variant-numeric:tabular-nums;">
+          <span style="color:var(--muted);font-size:12px;">원</span>
+        </span>
+      </label>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);">
+        <span style="font:400 13px/1 var(--font-t);color:var(--sub);">− 고정비</span>
+        <span class="tnum" style="font:600 14px/1 var(--font-t);">${fmt(pFixed(st.people[1]))}원</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);">
+        <span style="font:400 13px/1 var(--font-t);color:var(--sub);">− 카드값</span>
+        <span class="tnum" style="font:600 14px/1 var(--font-t);">${fmt(card1)}원</span>
+      </div>
+      <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:2px solid var(--text);">
+        <span style="font:400 13px/1 var(--font-t);color:var(--sub);">− 용돈</span>
+        <span style="display:inline-flex;align-items:baseline;gap:3px;">
+          <input id="sa" class="kb-ghost" type="number" value="${+st.people[1].allowance||0}" oninput="App.editPerson(1,'allowance',this.value)"
+            style="width:100px;text-align:right;border-bottom:1px dashed var(--muted);font:600 14px/1.2 var(--font-t);padding:2px 0;font-variant-numeric:tabular-nums;">
+          <span style="color:var(--muted);font-size:12px;">원</span>
+        </span>
+      </label>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0 0;">
+        <span style="font:600 14px/1 var(--font-t);">= 입금할 돈</span>
+        <span class="tnum" style="font:600 20px/1 var(--font-d);color:${st.people[1].accent};">${fmt(toDeposit1)}원</span>
       </div>
     </div>
     <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
