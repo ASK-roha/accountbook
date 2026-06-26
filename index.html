@@ -222,18 +222,12 @@ const ICO={
 /* ── Build sidebar ─────────────────────────────────────────────────── */
 const buildSidebar = () => {
   const acc=st.accent;
-  const pills=[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>{
-    const on=n===st.month;
-    return `<button onclick="App.setMonth(${n})" style="border:1px solid ${on?acc:'var(--line)'};padding:7px 0;border-radius:9px;font:600 13px/1 var(--font-d);background:${on?acc:'transparent'};color:${on?'#fff':'var(--text)'};transition:all .14s;">${MN[n]}</button>`;
-  }).join('');
   const nav=(key,label,ico,fn)=>{const on=st.page===key;return `<button onclick="App.${fn}()" style="display:flex;align-items:center;gap:11px;width:100%;padding:9px 12px;border-radius:10px;font:500 14px/1 var(--font-t);text-align:left;background:${on?acc:'transparent'};color:${on?'#fff':'var(--muted)'};transition:all .14s;">${ico}${label}</button>`;};
   return `<aside>
   <div style="display:flex;align-items:center;gap:10px;padding:0 8px 8px;">
     <span style="width:34px;height:34px;border-radius:9px;background:${acc};color:#fff;display:flex;align-items:center;justify-content:center;font:600 17px/1 var(--font-d);">₩</span>
     <div><div style="font:600 15px/1.1 var(--font-d);">공동 가계부</div><div style="font:400 11px/1.2 var(--font-t);color:var(--muted);">2026 · ki·sk·하온</div></div>
   </div>
-  <div style="font:600 10px/1 var(--font-t);color:var(--muted);letter-spacing:.07em;text-transform:uppercase;padding:16px 8px 8px;">월 선택</div>
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:0 4px;">${pills}</div>
   <div style="font:600 10px/1 var(--font-t);color:var(--muted);letter-spacing:.07em;text-transform:uppercase;padding:20px 8px 8px;">메뉴</div>
   <nav style="display:flex;flex-direction:column;gap:3px;padding:0 2px;">
     ${nav('dash','대시보드',ICO.dash,'goDash')}
@@ -649,7 +643,14 @@ const render = () => {
   document.documentElement.style.setProperty('--accent',st.accent);
 
   const page={dash:buildDash,fixed:buildFixed,shared:buildShared,plan:buildPlan}[st.page]||buildDash;
-  root.innerHTML=buildSidebar()+`<main>${page()}</main>`+buildRightPanel();
+  const monthNav=`<div style="position:sticky;top:0;z-index:10;display:flex;justify-content:flex-end;padding-bottom:4px;margin-bottom:8px;background:var(--bg);">
+    <div style="display:inline-flex;align-items:center;gap:16px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 18px;box-shadow:0 1px 8px rgba(0,0,0,.07);">
+      <button onclick="App.prevMonth()" style="background:transparent;border:0;color:var(--muted);font-size:13px;padding:0 2px;line-height:1;" ${st.month<=1?'disabled style="opacity:.3;background:transparent;border:0;color:var(--muted);font-size:13px;padding:0 2px;"':''}>◀</button>
+      <span style="font:600 15px/1 var(--font-d);letter-spacing:-.3px;min-width:80px;text-align:center;">2026년 ${MN[st.month]}</span>
+      <button onclick="App.nextMonth()" style="background:transparent;border:0;color:var(--muted);font-size:13px;padding:0 2px;line-height:1;" ${st.month>=12?'disabled style="opacity:.3;background:transparent;border:0;color:var(--muted);font-size:13px;padding:0 2px;"':''}>▶</button>
+    </div>
+  </div>`;
+  root.innerHTML=buildSidebar()+`<main>${monthNav}${page()}</main>`+buildRightPanel();
   startClock();
 
   if(_fid){const el=document.getElementById(_fid);if(el){el.focus();if(el.type==='number'){const v=el.value;el.value='';el.value=v;}else{try{el.setSelectionRange(_fss,_fse);}catch(e){}}}}
@@ -665,6 +666,8 @@ window.App={
   goShared(){st.page='shared';render();},
   goPlan(){st.page='plan';render();},
   setMonth(m){st.month=m;render();},
+  prevMonth(){if(st.month>1){st.month--;render();}},
+  nextMonth(){if(st.month<12){st.month++;render();}},
   toggleDark(){st.dark=!st.dark;render();},
 
   onIncome(v){st.incOv[st.month]=v===''?0:(parseInt(v,10)||0);render();},
