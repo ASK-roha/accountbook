@@ -139,6 +139,8 @@ if(st.people[1].name==='승국'){st.people[1].name='sk';st.people[1].initial='S'
 
 /* ── Helpers ───────────────────────────────────────────────────────── */
 const fmt = n => Math.round(n||0).toLocaleString('ko-KR');
+const fmtI = n => n ? Math.round(n).toLocaleString('ko-KR') : '';
+const parseAmt = v => parseInt((v+'').replace(/,/g,''), 10) || 0;
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const pFixed = p => p.rows.reduce((a,r)=>a+(+r.amt||0),0);
 const mDeposit = m => {
@@ -347,7 +349,7 @@ const buildDash = () => {
       <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);">
         <span style="font:400 13px/1 var(--font-t);white-space:nowrap;">월급</span>
         <span style="display:inline-flex;align-items:baseline;gap:3px;">
-          <input id="ci" class="kb-ghost" type="number" value="${income}" oninput="App.onIncome(this.value)"
+          <input id="ci" class="kb-ghost" type="text" value="${fmt(income)}" oninput="App.onIncome(this.value)"
             style="text-align:right;border-bottom:2px solid ${st.people[0].accent};font:600 15px/1.2 var(--font-t);color:${st.people[0].accent};padding:2px 0;font-variant-numeric:tabular-nums;">
           <span style="color:var(--muted);font-size:12px;">원</span>
         </span>
@@ -363,7 +365,7 @@ const buildDash = () => {
       <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:2px solid var(--text);">
         <span style="font:400 13px/1 var(--font-t);color:var(--sub);">− 용돈</span>
         <span style="display:inline-flex;align-items:baseline;gap:3px;">
-          <input id="ca" class="kb-ghost" type="number" value="${allowance}" oninput="App.onAllowance(this.value)"
+          <input id="ca" class="kb-ghost" type="text" value="${fmt(allowance)}" oninput="App.onAllowance(this.value)"
             style="text-align:right;border-bottom:1px dashed var(--muted);font:600 14px/1.2 var(--font-t);padding:2px 0;font-variant-numeric:tabular-nums;">
           <span style="color:var(--muted);font-size:12px;">원</span>
         </span>
@@ -381,7 +383,7 @@ const buildDash = () => {
       <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);">
         <span style="font:400 13px/1 var(--font-t);white-space:nowrap;">월급</span>
         <span style="display:inline-flex;align-items:baseline;gap:3px;">
-          <input id="si" class="kb-ghost" type="number" value="${+st.people[1].salary||0}" oninput="App.editPerson(1,'salary',this.value)"
+          <input id="si" class="kb-ghost" type="text" value="${fmt(+st.people[1].salary||0)}" oninput="App.editPerson(1,'salary',this.value)"
             style="text-align:right;border-bottom:2px solid ${st.people[1].accent};font:600 15px/1.2 var(--font-t);color:${st.people[1].accent};padding:2px 0;font-variant-numeric:tabular-nums;">
           <span style="color:var(--muted);font-size:12px;">원</span>
         </span>
@@ -397,7 +399,7 @@ const buildDash = () => {
       <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:2px solid var(--text);">
         <span style="font:400 13px/1 var(--font-t);color:var(--sub);">− 용돈</span>
         <span style="display:inline-flex;align-items:baseline;gap:3px;">
-          <input id="sa" class="kb-ghost" type="number" value="${+st.people[1].allowance||0}" oninput="App.editPerson(1,'allowance',this.value)"
+          <input id="sa" class="kb-ghost" type="text" value="${fmt(+st.people[1].allowance||0)}" oninput="App.editPerson(1,'allowance',this.value)"
             style="text-align:right;border-bottom:1px dashed var(--muted);font:600 14px/1.2 var(--font-t);padding:2px 0;font-variant-numeric:tabular-nums;">
           <span style="color:var(--muted);font-size:12px;">원</span>
         </span>
@@ -440,7 +442,7 @@ const buildFixed = () => {
     const rows=p.rows.map((r,ri)=>`
       <div class="erow" style="display:flex;align-items:center;gap:8px;padding:5px 14px 5px 20px;border-bottom:1px solid var(--line);">
         <input class="kb-ghost" type="text" id="pn${pi}r${ri}" value="${esc(r.name)}" oninput="App.editRowName(${pi},${ri},this.value)" onfocus="if(this.value==='새 항목')this.select()" style="flex:1;min-width:0;font-size:14px;">
-        <input class="kb-ghost" type="number" id="pa${pi}r${ri}" value="${r.amt}" oninput="App.editRowAmt(${pi},${ri},this.value)" style="width:96px;text-align:right;font-size:14px;font-weight:500;color:var(--red);font-variant-numeric:tabular-nums;">
+        <input class="kb-ghost" type="text" id="pa${pi}r${ri}" value="${fmt(r.amt)}" oninput="App.editRowAmt(${pi},${ri},this.value)" style="width:96px;text-align:right;font-size:14px;font-weight:500;color:var(--red);font-variant-numeric:tabular-nums;">
         <button onclick="App.delRow(${pi},${ri})" class="del" style="background:transparent;color:var(--muted);font-size:15px;padding:2px 4px;">✕</button>
       </div>`).join('');
     return `
@@ -458,15 +460,15 @@ const buildFixed = () => {
       <div style="display:flex;gap:10px;padding:11px 20px;border-bottom:1px solid var(--line);">
         <label style="flex:1;display:flex;flex-direction:column;gap:4px;">
           <span style="font:400 11px/1 var(--font-t);color:var(--muted);">급여</span>
-          <input class="kb-in" type="number" id="ps${pi}" value="${p.salary}" oninput="App.editPerson(${pi},'salary',this.value)" style="text-align:right;color:var(--green);font-weight:600;width:100%;">
+          <input class="kb-in" type="text" id="ps${pi}" value="${fmt(p.salary)}" oninput="App.editPerson(${pi},'salary',this.value)" style="text-align:right;color:var(--green);font-weight:600;width:100%;">
         </label>
         <label style="flex:1;display:flex;flex-direction:column;gap:4px;">
           <span style="font:400 11px/1 var(--font-t);color:var(--muted);">용돈</span>
-          <input class="kb-in" type="number" id="pal${pi}" value="${p.allowance}" oninput="App.editPerson(${pi},'allowance',this.value)" style="text-align:right;width:100%;">
+          <input class="kb-in" type="text" id="pal${pi}" value="${fmt(p.allowance)}" oninput="App.editPerson(${pi},'allowance',this.value)" style="text-align:right;width:100%;">
         </label>
         <label style="flex:1;display:flex;flex-direction:column;gap:4px;">
           <span style="font:400 11px/1 var(--font-t);color:var(--muted);">카드값</span>
-          <input class="kb-in" type="number" id="pc${pi}" value="${card}" oninput="App.editCard(${pi},this.value)" style="text-align:right;color:var(--red);width:100%;">
+          <input class="kb-in" type="text" id="pc${pi}" value="${fmt(card)}" oninput="App.editCard(${pi},this.value)" style="text-align:right;color:var(--red);width:100%;">
         </label>
       </div>
       <div>${rows}</div>
@@ -522,7 +524,7 @@ const buildShared = () => {
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);">
       <label style="display:flex;align-items:center;gap:8px;">
         <span style="font:500 13px/1 var(--font-t);color:var(--muted);">이월 금액</span>
-        <input class="kb-in" type="number" id="lc" value="${st.ledger.carry}" oninput="App.onCarry(this.value)" style="width:140px;text-align:right;font-weight:600;">
+        <input class="kb-in" type="text" id="lc" value="${fmt(st.ledger.carry)}" oninput="App.onCarry(this.value)" style="width:140px;text-align:right;font-weight:600;">
       </label>
       <span style="font:400 12px/1 var(--font-t);color:var(--muted);">${st.ledger.txns.length}건의 거래</span>
     </div>
@@ -533,8 +535,8 @@ const buildShared = () => {
     <div style="display:grid;grid-template-columns:60px 1fr 100px 100px 34px;gap:8px;align-items:center;padding:11px 20px;background:var(--chip);">
       <input class="kb-in" type="text" id="dd" value="${esc(d.date)}" oninput="App.editDraft('date',this.value)" placeholder="6/15" style="font-size:13px;">
       <input class="kb-in" type="text" id="dn" value="${esc(d.name)}" oninput="App.editDraft('name',this.value)" placeholder="내용" style="font-size:13px;">
-      <input class="kb-in" type="number" id="di" value="${d.inc}" oninput="App.editDraft('inc',this.value)" placeholder="수입" style="font-size:13px;text-align:right;color:var(--green);">
-      <input class="kb-in" type="number" id="de" value="${d.exp}" oninput="App.editDraft('exp',this.value)" placeholder="지출" style="font-size:13px;text-align:right;color:var(--red);">
+      <input class="kb-in" type="text" id="di" value="${fmtI(d.inc)}" oninput="App.editDraft('inc',this.value)" placeholder="수입" style="font-size:13px;text-align:right;color:var(--green);">
+      <input class="kb-in" type="text" id="de" value="${fmtI(d.exp)}" oninput="App.editDraft('exp',this.value)" placeholder="지출" style="font-size:13px;text-align:right;color:var(--red);">
       <button onclick="App.addTxn()" style="background:${st.accent};color:#fff;border-radius:9px;height:34px;font:600 16px/1 var(--font-t);width:100%;">＋</button>
     </div>
   </div>
@@ -686,7 +688,7 @@ const render = () => {
   root.innerHTML=buildSidebar()+`<main>${monthNav}${page()}</main>`+buildRightPanel();
   startClock();
 
-  if(_fid){const el=document.getElementById(_fid);if(el){el.focus();if(el.type==='number'){const v=el.value;el.value='';el.value=v;}else{try{el.setSelectionRange(_fss,_fse);}catch(e){}}}}
+  if(_fid){const el=document.getElementById(_fid);if(el){el.focus();try{el.setSelectionRange(el.value.length,el.value.length);}catch(e){}}}
   ['ci','ca','si','sa'].forEach(id=>{const el=document.getElementById(id);if(!el)return;const ctx=document.createElement('canvas').getContext('2d');const cs=getComputedStyle(el);ctx.font=cs.fontWeight+' '+cs.fontSize+'/1 '+cs.fontFamily;el.style.width=Math.ceil(ctx.measureText(el.value||'0').width)+6+'px';});
   drawCharts();
   persist();
@@ -703,20 +705,20 @@ window.App={
   nextMonth(){if(st.month<12){st.month++;render();}},
   toggleDark(){st.dark=!st.dark;render();},
 
-  onIncome(v){st.incOv[st.month]=v===''?0:(parseInt(v,10)||0);render();},
-  onAllowance(v){st.alOv[st.month]=v===''?0:(parseInt(v,10)||0);render();},
+  onIncome(v){st.incOv[st.month]=v===''?0:parseAmt(v);render();},
+  onAllowance(v){st.alOv[st.month]=v===''?0:parseAmt(v);render();},
 
-  editPerson(pi,field,v){st.people[pi][field]=v===''?0:(parseInt(v,10)||0);render();},
+  editPerson(pi,field,v){st.people[pi][field]=v===''?0:parseAmt(v);render();},
   editRowName(pi,ri,v){st.people[pi].rows[ri].name=v;persist();},
-  editRowAmt(pi,ri,v){st.people[pi].rows[ri].amt=v===''?0:(parseInt(v,10)||0);render();},
-  editCard(pi,v){if(!st.cardOv[st.month])st.cardOv[st.month]={};st.cardOv[st.month][pi]=v===''?0:(parseInt(v,10)||0);render();},
+  editRowAmt(pi,ri,v){st.people[pi].rows[ri].amt=v===''?0:parseAmt(v);render();},
+  editCard(pi,v){if(!st.cardOv[st.month])st.cardOv[st.month]={};st.cardOv[st.month][pi]=v===''?0:parseAmt(v);render();},
   addRow(pi){st.people[pi].rows.push({name:'새 항목',amt:0});render();},
   delRow(pi,ri){st.people[pi].rows.splice(ri,1);render();},
 
-  onCarry(v){st.ledger.carry=v===''?0:(parseInt(v,10)||0);render();},
+  onCarry(v){st.ledger.carry=v===''?0:parseAmt(v);render();},
   editDraft(field,v){st.draft[field]=v;persist();},
   addTxn(){
-    const d=st.draft, inc=parseInt(d.inc,10)||0, exp=parseInt(d.exp,10)||0;
+    const d=st.draft, inc=parseAmt(d.inc), exp=parseAmt(d.exp);
     if(!d.name||(!inc&&!exp)){toast('내용과 금액을 입력하세요');return;}
     st.ledger.txns.push({date:d.date||('6/'+new Date().getDate()),name:d.name,amt:inc>0?inc:-exp});
     st.draft={date:'',name:'',inc:'',exp:''};
@@ -752,7 +754,7 @@ window.App={
           </div>
           <label style="display:flex;flex-direction:column;gap:5px;">
             <span style="font:400 11px/1 var(--font-t);color:var(--muted);">금액</span>
-            <input id="qa-amt" class="kb-in" type="number" placeholder="0" style="width:100%;text-align:right;font:600 16px/1 var(--font-t);">
+            <input id="qa-amt" class="kb-in" type="text" placeholder="0" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',')" style="width:100%;text-align:right;font:600 16px/1 var(--font-t);">
           </label>
           <button onclick="App.quickAddSubmit()" style="padding:11px;border:0;background:#bf5af2;color:#fff;border-radius:12px;font:600 15px/1 var(--font-t);">추가하기</button>
         </div>`;
@@ -776,7 +778,7 @@ window.App={
   quickAddSubmit(){
     const date=document.getElementById('qa-date').value.trim()||`${new Date().getMonth()+1}/${new Date().getDate()}`;
     const name=document.getElementById('qa-name').value.trim();
-    const amt=parseInt(document.getElementById('qa-amt').value,10)||0;
+    const amt=parseAmt(document.getElementById('qa-amt').value);
     const m=document.getElementById('qa-modal');
     if(!name||!amt){toast('내용과 금액을 입력하세요');return;}
     const isExp=m._type==='exp';
