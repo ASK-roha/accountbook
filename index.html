@@ -194,19 +194,49 @@ let _dn=null, _br=null;
 const drawCharts = () => {
   if(st.page!=='dash') return;
   if(!window.Chart){setTimeout(drawCharts,200);return;}
-  const dark=st.dark, acc=st.accent;
+  const dark=st.dark;
   const tick=dark?'#aeaeb2':'#86868b', grid=dark?'rgba(255,255,255,.08)':'rgba(0,0,0,.06)';
+
+  // 도넛: 이번 달 지출 구성
   const dc=document.getElementById('kb-donut');
-  if(dc){if(_dn)_dn.destroy();
-    _dn=new Chart(dc,{type:'doughnut',data:{labels:['ki','sk'],datasets:[{data:[pFixed(st.people[0]),pFixed(st.people[1])],backgroundColor:[acc,'#1f8a5b'],borderWidth:0}]},
-      options:{responsive:true,maintainAspectRatio:false,cutout:'66%',plugins:{legend:{position:'bottom',labels:{color:tick,boxWidth:10,boxHeight:10,usePointStyle:true,font:{size:12}}}}}});
+  if(dc){
+    if(_dn)_dn.destroy();
+    const ki=pFixed(st.people[0]);
+    const sk=pFixed(st.people[1]);
+    const shared=Math.abs(st.ledger.txns.filter(t=>t.amt<0).reduce((a,t)=>a+t.amt,0));
+    _dn=new Chart(dc,{type:'doughnut',
+      data:{labels:['ki 고정','sk 고정','공동생활비'],datasets:[{data:[ki,sk,shared||1],backgroundColor:['#8baee8','#7dc8a0','#b4a0e5'],borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+        plugins:{legend:{position:'bottom',labels:{color:tick,boxWidth:10,boxHeight:10,usePointStyle:true,pointStyle:'rect',font:{size:12}}}}}});
   }
+
+  // 막대: 월별 수지
   const bc=document.getElementById('kb-bar');
-  if(bc){if(_br)_br.destroy();
-    const data=[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>mDeposit(m));
-    _br=new Chart(bc,{type:'bar',data:{labels:MN.slice(1),datasets:[{data,backgroundColor:data.map((_,i)=>(i+1)===st.month?acc:(dark?'#3a3a3c':'#d6e4f5')),borderRadius:5,maxBarThickness:32}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.raw)+'원'}}},
-        scales:{x:{ticks:{color:tick,font:{size:12}},grid:{display:false}},y:{ticks:{color:tick,font:{size:11},callback:v=>(v/10000)+'만'},grid:{color:grid}}}}});
+  if(bc){
+    if(_br)_br.destroy();
+    const ms=[1,2,3,4,5,6,7,8,9,10,11,12];
+    const totSalary=(+st.people[0].salary||0)+(+st.people[1].salary||0);
+    const incData=ms.map(()=>totSalary);
+    const expData=ms.map(m=>{
+      const c=(st.cardOv[m]?.[0]||0)+(st.cardOv[m]?.[1]||0);
+      return pFixed(st.people[0])+pFixed(st.people[1])+c+(+st.people[0].allowance||0)+(+st.people[1].allowance||0);
+    });
+    const iC=dark?'rgba(52,199,89,.5)':'rgba(52,199,89,.45)';
+    const eC=dark?'rgba(255,69,58,.5)':'rgba(255,69,58,.4)';
+    _br=new Chart(bc,{type:'bar',
+      data:{labels:MN.slice(1),datasets:[
+        {label:'수입',data:incData,backgroundColor:incData.map((_,i)=>(i+1)===st.month?'rgba(52,199,89,.85)':iC),borderRadius:4,maxBarThickness:20},
+        {label:'지출',data:expData,backgroundColor:expData.map((_,i)=>(i+1)===st.month?'rgba(255,69,58,.8)':eC),borderRadius:4,maxBarThickness:20}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{display:true,position:'top',align:'end',labels:{color:tick,boxWidth:10,boxHeight:10,usePointStyle:true,pointStyle:'rect',font:{size:11}}},
+          tooltip:{callbacks:{title:c=>`${c[0].label}`,label:c=>`${c.dataset.label}: ${fmt(c.raw)}`}}
+        },
+        scales:{
+          x:{ticks:{color:tick,font:{size:11}},grid:{display:false}},
+          y:{ticks:{color:tick,font:{size:10},callback:v=>v===0?'₩0':`₩${(v/1000000).toFixed(1)}M`},grid:{color:grid}}
+        }}});
   }
 };
 
@@ -378,15 +408,15 @@ const buildDash = () => {
       </div>
     </div>
     <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
-      <div style="font:600 16px/1 var(--font-d);margin-bottom:4px;">고정지출 구성</div>
+      <div style="font:600 16px/1 var(--font-d);margin-bottom:4px;">이번 달 지출 구성</div>
       <div style="font:400 12px/1 var(--font-t);color:var(--muted);margin-bottom:10px;">ki · sk 분담 비율</div>
       <div style="position:relative;height:230px;"><canvas id="kb-donut"></canvas></div>
     </div>
   </div>
   <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:16px;">
     <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
-      <div style="font:600 16px/1 var(--font-d);margin-bottom:4px;">월별 입금할 돈</div>
-      <div style="font:400 12px/1 var(--font-t);color:var(--muted);margin-bottom:12px;">1월 ~ 12월 추이</div>
+      <div style="font:600 16px/1 var(--font-d);margin-bottom:4px;">월별 수지</div>
+      <div style="font:400 12px/1 var(--font-t);color:var(--muted);margin-bottom:12px;">수입 · 지출 연간 추이</div>
       <div style="position:relative;height:220px;"><canvas id="kb-bar"></canvas></div>
     </div>
     <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
