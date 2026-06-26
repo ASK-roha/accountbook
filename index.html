@@ -10,18 +10,19 @@
   --font-d: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
   --font-t: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
   --bg:#f5f5f7; --card:#fff; --text:#1d1d1f; --muted:#86868b; --sub:#515154;
-  --line:rgba(0,0,0,.09); --chip:#f5f5f7; --green:#1f8a5b; --red:#d70015;
+  --line:rgba(0,0,0,.09); --chip:#f5f5f7; --green:#28a058; --red:#d70015;
   --sidebar:#fff; --accent:#0066cc;
 }
 [data-theme=dark] {
   --bg:#000; --card:#1c1c1e; --text:#f5f5f7; --muted:#8e8e93; --sub:#aeaeb2;
   --line:rgba(255,255,255,.13); --chip:#2c2c2e; --green:#30d158; --red:#ff453a;
-  --sidebar:#161618;
+  --sidebar:#161618; --accent:#0a84ff;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font:400 15px/1.5 var(--font-t);letter-spacing:-.2px}
 button{cursor:pointer;font-family:var(--font-t);border:0}
-input{font-family:var(--font-t)}
+input{font-family:var(--font-t);caret-color:var(--accent)}
+textarea{caret-color:var(--accent)}
 input[type=number]{-moz-appearance:textfield}
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
@@ -41,6 +42,10 @@ main{flex:1;min-width:0;padding:28px 34px 64px;overflow-y:auto;height:100vh}
   font:500 14px/1 var(--font-t);z-index:999;box-shadow:0 6px 24px rgba(0,0,0,.2);
   pointer-events:none;opacity:0;transition:opacity .2s}
 #toast.show{opacity:1}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:999px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
 .rp{width:210px;flex-shrink:0;background:var(--sidebar);border-left:1px solid var(--line);
   position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:18px 14px;overflow-y:auto;gap:14px;}
 </style>
