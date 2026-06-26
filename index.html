@@ -41,6 +41,8 @@ main{flex:1;min-width:0;padding:28px 34px 64px;overflow-y:auto;height:100vh}
   font:500 14px/1 var(--font-t);z-index:999;box-shadow:0 6px 24px rgba(0,0,0,.2);
   pointer-events:none;opacity:0;transition:opacity .2s}
 #toast.show{opacity:1}
+.rp{width:210px;flex-shrink:0;background:var(--sidebar);border-left:1px solid var(--line);
+  position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:18px 14px;overflow-y:auto;gap:14px;}
 </style>
 </head>
 <body>
@@ -56,6 +58,9 @@ let _fbUrl = (localStorage.getItem('kb-fb-url')||'').trim().replace(/\/$/,'');
 let _sse = null, _synced = false, _wt = null;
 let _aiKey = localStorage.getItem('kb-ai-key') || '';
 let _aiParsed = null;
+let _memo = localStorage.getItem('kb-memo') || '';
+let _weather = null;
+let _clockInt = null;
 
 /* ── Constants ─────────────────────────────────────────────────────── */
 const MN = ['','1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
@@ -555,6 +560,77 @@ const buildPlan = () => {
 </div>`;
 };
 
+/* ── Right Panel ───────────────────────────────────────────────────── */
+const _wIco = c => {
+  const n=+c;
+  if(n===113) return '☀️';
+  if(n<=116) return '⛅';
+  if(n<=122) return '☁️';
+  if(n<=143||n===248||n===260) return '🌫️';
+  if([200,386,389,392,395].includes(n)) return '⛈️';
+  if(n<=321) return '🌧️';
+  if(n<=377) return '🌨️';
+  return '🌤️';
+};
+const fetchWeather = async () => {
+  try{
+    const r=await fetch('https://wttr.in/?format=j1');
+    const d=await r.json();
+    const c=d.current_condition[0];
+    _weather={temp:c.temp_C,desc:(c.lang_ko?.[0]?.value||c.weatherDesc[0].value),icon:_wIco(c.weatherCode)};
+    render();
+  }catch(e){}
+};
+const startClock = () => {
+  if(_clockInt) return;
+  _clockInt=setInterval(()=>{
+    const el=document.getElementById('rp-clock');
+    if(!el){clearInterval(_clockInt);_clockInt=null;return;}
+    el.textContent=new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  },1000);
+};
+const buildRightPanel = () => {
+  const now=new Date(), y=now.getFullYear(), mo=now.getMonth(), tod=now.getDate();
+  const first=(new Date(y,mo,1).getDay()+6)%7, dim=new Date(y,mo+1,0).getDate();
+  const DL=['월','화','수','목','금','토','일'];
+  let cells='';
+  for(let i=0;i<first;i++) cells+='<div></div>';
+  for(let d=1;d<=dim;d++){
+    const iT=d===tod, dow=(first+d-1)%7;
+    const tc=iT?'#fff':dow===5?'var(--accent)':dow===6?'var(--red)':'var(--text)';
+    cells+=`<div style="text-align:center;line-height:22px;border-radius:6px;font:${iT?700:400} 11px/1 var(--font-t);${iT?'background:var(--accent);':''}color:${tc};">${d}</div>`;
+  }
+  return `<section class="rp">
+  <div style="text-align:center;padding:8px 0 4px;">
+    <div id="rp-clock" style="font:700 26px/1 var(--font-d);letter-spacing:-1px;">${now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</div>
+    <div style="font:400 11px/1 var(--font-t);color:var(--muted);margin-top:5px;">${now.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'})}</div>
+  </div>
+  <div style="background:var(--chip);border-radius:14px;padding:11px 13px;">
+    <div style="font:600 10px/1 var(--font-t);color:var(--muted);letter-spacing:.07em;margin-bottom:8px;">날씨</div>
+    ${_weather
+      ? `<div style="display:flex;align-items:center;gap:10px;">
+           <span style="font-size:26px;">${_weather.icon}</span>
+           <div><div style="font:700 18px/1 var(--font-d);">${_weather.temp}°C</div>
+           <div style="font:400 11px/1.3 var(--font-t);color:var(--muted);margin-top:2px;">${_weather.desc}</div></div>
+         </div>`
+      : `<div style="font:400 11px/1 var(--font-t);color:var(--muted);">불러오는 중...</div>`
+    }
+  </div>
+  <div>
+    <div style="font:600 10px/1 var(--font-t);color:var(--muted);letter-spacing:.07em;margin-bottom:8px;">${y}년 ${mo+1}월</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;margin-bottom:3px;">
+      ${DL.map((d,i)=>`<div style="text-align:center;font:600 10px/1 var(--font-t);color:${i===5?'var(--accent)':i===6?'var(--red)':'var(--muted)'};">${d}</div>`).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;">${cells}</div>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-height:0;">
+    <div style="font:600 10px/1 var(--font-t);color:var(--muted);letter-spacing:.07em;">메모</div>
+    <textarea id="rp-memo" oninput="App.saveMemo(this.value)" placeholder="메모..."
+      style="flex:1;min-height:90px;resize:none;background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:10px;font:400 12px/1.6 var(--font-t);color:var(--text);outline:none;">${esc(_memo)}</textarea>
+  </div>
+</section>`;
+};
+
 /* ── Render ────────────────────────────────────────────────────────── */
 let _fid=null, _fss=null, _fse=null;
 const render = () => {
@@ -568,7 +644,8 @@ const render = () => {
   document.documentElement.style.setProperty('--accent',st.accent);
 
   const page={dash:buildDash,fixed:buildFixed,shared:buildShared,plan:buildPlan}[st.page]||buildDash;
-  root.innerHTML=buildSidebar()+`<main>${page()}</main>`;
+  root.innerHTML=buildSidebar()+`<main>${page()}</main>`+buildRightPanel();
+  startClock();
 
   if(_fid){const el=document.getElementById(_fid);if(el){el.focus();if(el.type==='number'){const v=el.value;el.value='';el.value=v;}else{try{el.setSelectionRange(_fss,_fse);}catch(e){}}}}
   ['ci','ca','si','sa'].forEach(id=>{const el=document.getElementById(id);if(!el)return;const ctx=document.createElement('canvas').getContext('2d');const cs=getComputedStyle(el);ctx.font=cs.fontWeight+' '+cs.fontSize+'/1 '+cs.fontFamily;el.style.width=Math.ceil(ctx.measureText(el.value||'0').width)+6+'px';});
@@ -722,6 +799,8 @@ window.App={
     localStorage.removeItem('kb-fb-url');
     render();
   },
+  saveMemo(v){_memo=v;localStorage.setItem('kb-memo',v);},
+
   exportJSON(){
     try{
       const blob=new Blob([JSON.stringify({month:st.month,incOv:st.incOv,alOv:st.alOv,people:st.people,ledger:st.ledger},null,2)],{type:'application/json'});
@@ -733,6 +812,7 @@ window.App={
 
 render();
 if(_fbUrl) fbConnect();
+fetchWeather();
 })();
 </script>
 </body>
