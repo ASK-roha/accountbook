@@ -420,7 +420,10 @@ const buildDash = () => {
       <div style="position:relative;height:220px;"><canvas id="kb-bar"></canvas></div>
     </div>
     <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
-      <div style="font:600 16px/1 var(--font-d);margin-bottom:12px;">최근 공동 거래</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <span style="font:600 16px/1 var(--font-d);">최근 공동 거래</span>
+        <button onclick="App.quickAddOpen()" style="background:#bf5af2;color:#fff;border:0;border-radius:10px;padding:7px 14px;font:600 13px/1 var(--font-t);">+ 내역 추가</button>
+      </div>
       ${recent||'<div style="color:var(--muted);font-size:14px;">거래 없음</div>'}
     </div>
   </div>
@@ -720,6 +723,66 @@ window.App={
     render(); toast('거래 추가됨 ✓');
   },
   delTxn(i){st.ledger.txns.splice(i,1);render();},
+
+  quickAddOpen(){
+    let m=document.getElementById('qa-modal');
+    if(!m){
+      m=document.createElement('div');
+      m.id='qa-modal';
+      m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+      m.innerHTML=`
+        <div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px;width:360px;max-width:92vw;display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font:600 17px/1 var(--font-d);">내역 추가</span>
+            <button onclick="App.quickAddClose()" style="border:0;background:transparent;font-size:20px;color:var(--muted);">✕</button>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <label style="flex:1;display:flex;flex-direction:column;gap:5px;">
+              <span style="font:400 11px/1 var(--font-t);color:var(--muted);">날짜</span>
+              <input id="qa-date" class="kb-in" type="text" placeholder="${new Date().getMonth()+1}/${new Date().getDate()}" style="width:100%;">
+            </label>
+            <label style="flex:2;display:flex;flex-direction:column;gap:5px;">
+              <span style="font:400 11px/1 var(--font-t);color:var(--muted);">내용</span>
+              <input id="qa-name" class="kb-in" type="text" placeholder="내용 입력" style="width:100%;">
+            </label>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button id="qa-type-exp" onclick="App.quickAddType('exp')" style="flex:1;padding:8px;border:2px solid var(--red);border-radius:10px;background:var(--red);color:#fff;font:600 13px/1 var(--font-t);">지출</button>
+            <button id="qa-type-inc" onclick="App.quickAddType('inc')" style="flex:1;padding:8px;border:2px solid var(--line);border-radius:10px;background:transparent;color:var(--muted);font:600 13px/1 var(--font-t);">수입</button>
+          </div>
+          <label style="display:flex;flex-direction:column;gap:5px;">
+            <span style="font:400 11px/1 var(--font-t);color:var(--muted);">금액</span>
+            <input id="qa-amt" class="kb-in" type="number" placeholder="0" style="width:100%;text-align:right;font:600 16px/1 var(--font-t);">
+          </label>
+          <button onclick="App.quickAddSubmit()" style="padding:11px;border:0;background:#bf5af2;color:#fff;border-radius:12px;font:600 15px/1 var(--font-t);">추가하기</button>
+        </div>`;
+      document.body.appendChild(m);
+    }
+    m.style.display='flex';
+    m._type='exp';
+    const today=new Date();
+    document.getElementById('qa-date').value=`${today.getMonth()+1}/${today.getDate()}`;
+    document.getElementById('qa-name').value='';
+    document.getElementById('qa-amt').value='';
+    setTimeout(()=>document.getElementById('qa-name').focus(),50);
+  },
+  quickAddType(t){
+    document.getElementById('qa-modal')._type=t;
+    const eBtn=document.getElementById('qa-type-exp'), iBtn=document.getElementById('qa-type-inc');
+    if(t==='exp'){eBtn.style.cssText='flex:1;padding:8px;border:2px solid var(--red);border-radius:10px;background:var(--red);color:#fff;font:600 13px/1 var(--font-t);';iBtn.style.cssText='flex:1;padding:8px;border:2px solid var(--line);border-radius:10px;background:transparent;color:var(--muted);font:600 13px/1 var(--font-t):';}
+    else{iBtn.style.cssText='flex:1;padding:8px;border:2px solid var(--green);border-radius:10px;background:var(--green);color:#fff;font:600 13px/1 var(--font-t);';eBtn.style.cssText='flex:1;padding:8px;border:2px solid var(--line);border-radius:10px;background:transparent;color:var(--muted);font:600 13px/1 var(--font-t):';}
+  },
+  quickAddClose(){const m=document.getElementById('qa-modal');if(m)m.style.display='none';},
+  quickAddSubmit(){
+    const date=document.getElementById('qa-date').value.trim()||`${new Date().getMonth()+1}/${new Date().getDate()}`;
+    const name=document.getElementById('qa-name').value.trim();
+    const amt=parseInt(document.getElementById('qa-amt').value,10)||0;
+    const m=document.getElementById('qa-modal');
+    if(!name||!amt){toast('내용과 금액을 입력하세요');return;}
+    const isExp=m._type==='exp';
+    st.ledger.txns.push({date,name,amt:isExp?-amt:amt});
+    App.quickAddClose(); render(); toast('거래 추가됨 ✓');
+  },
 
   aiSetup(){
     const k=prompt('Claude API 키를 입력하세요\n\nhttps://console.anthropic.com 에서 발급\nsk-ant-api... 로 시작하는 키');
