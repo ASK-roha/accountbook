@@ -194,6 +194,10 @@ const fbConnect = () => {
       if(!payload.data){_synced=true;render();return;}
       const remote=payload.data;
       if(remote._dev===DEVICE_ID){_synced=true;render();return;}
+      // 원격 거래 수가 로컬보다 적으면 덮어쓰지 않고 로컬을 Firebase에 올림
+      const remoteLen=(remote.ledger?.txns||[]).length;
+      const localLen=(st.ledger?.txns||[]).length;
+      if(remoteLen < localLen){persist();_synced=true;render();return;}
       const {_dev,...data}=remote;
       Object.assign(st,data);
       if(!st.draft)st.draft={date:'',name:'',inc:'',exp:''};
@@ -1093,11 +1097,17 @@ window.App={
       if(!res.ok) throw new Error('HTTP '+res.status);
       const remote=await res.json();
       if(!remote){return toast('Firebase에 데이터가 없습니다');}
+      const remoteLen=(remote.ledger?.txns||[]).length;
+      const localLen=(st.ledger?.txns||[]).length;
+      if(remoteLen < localLen){
+        _synced=true; persist(); render();
+        return toast(`로컬(${localLen}건)이 더 많아 Firebase에 올렸습니다 ✓`);
+      }
       const {_dev,...data}=remote;
       Object.assign(st,data);
       if(!st.draft)st.draft={date:'',name:'',inc:'',exp:''};
       _synced=true; persist(); render();
-      toast('불러오기 완료 ✓');
+      toast(`불러오기 완료 ✓ (${remoteLen}건)`);
     }catch(e){
       toast('실패: '+e.message);
     }
