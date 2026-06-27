@@ -71,7 +71,7 @@ const DEVICE_ID = Math.random().toString(36).slice(2);
 let _fbUrl = (localStorage.getItem('kb-fb-url')||'').trim().replace(/\/$/,'');
 let _sse = null, _synced = false, _wt = null;
 let _aiKey = localStorage.getItem('kb-ai-key') || '';
-let _aiParsed = null;
+let _aiMsgs = [];
 let _memo = localStorage.getItem('kb-memo') || '';
 let _weather = null;
 let _clockInt = null;
@@ -890,104 +890,107 @@ window.App={
     App.quickAddClose(); render(); toast('거래 추가됨 ✓');
   },
 
+  aiOpen(){App._aiEnsurePanel();App._aiShow();},
+  aiClose(){const p=document.getElementById('ai-panel');if(p)p.style.display='none';},
   aiSetup(){
     const k=prompt('Claude API 키를 입력하세요\n\nhttps://console.anthropic.com 에서 발급\nsk-ant-api... 로 시작하는 키');
     if(!k||!k.startsWith('sk-'))return toast('올바른 API 키가 아닙니다');
     _aiKey=k.trim(); localStorage.setItem('kb-ai-key',_aiKey); render();
   },
   aiDisconnect(){_aiKey=''; localStorage.removeItem('kb-ai-key'); render();},
-  aiOpen(){
-    _aiParsed=null;
-    let m=document.getElementById('ai-modal');
-    if(!m){
-      m=document.createElement('div');
-      m.id='ai-modal';
-      m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;';
-      m.innerHTML=`
-        <div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px;width:540px;max-width:92vw;max-height:85vh;display:flex;flex-direction:column;gap:14px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span style="font:600 17px/1 var(--font-d);">✦ Claude 거래 파싱</span>
-            <button onclick="App.aiClose()" style="border:0;background:transparent;font-size:20px;color:var(--muted);cursor:pointer;">✕</button>
-          </div>
-          <div style="font:400 12px/1.5 var(--font-t);color:var(--muted);">카카오뱅크·토스 문자, 엑셀 복붙 등 자유롭게 붙여넣으세요</div>
-          <textarea id="ai-text" placeholder="예) 6/24 스타벅스 5,500원 출금&#10;6/24 마트 23,400원 출금" style="flex:1;min-height:160px;resize:vertical;border:1px solid var(--line);border-radius:12px;padding:12px;font:400 13px/1.6 var(--font-t);background:var(--bg);color:var(--text);outline:none;"></textarea>
-          <div id="ai-preview" style="display:none;max-height:220px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;"></div>
-          <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button onclick="App.aiClose()" style="padding:9px 18px;border:1px solid var(--line);background:transparent;border-radius:10px;font:500 13px/1 var(--font-t);color:var(--muted);cursor:pointer;">취소</button>
-            <button id="ai-parse-btn" onclick="App.aiParse()" style="padding:9px 18px;border:0;background:var(--accent);color:#fff;border-radius:10px;font:500 13px/1 var(--font-t);cursor:pointer;">분석하기</button>
-            <button id="ai-confirm-btn" onclick="App.aiConfirm()" style="display:none;padding:9px 18px;border:0;background:var(--green);color:#fff;border-radius:10px;font:500 13px/1 var(--font-t);cursor:pointer;">추가하기</button>
-          </div>
-        </div>`;
-      document.body.appendChild(m);
-    }
-    m.style.display='flex';
-    document.getElementById('ai-text').value='';
-    document.getElementById('ai-preview').style.display='none';
-    document.getElementById('ai-confirm-btn').style.display='none';
-    document.getElementById('ai-parse-btn').textContent='분석하기';
-    document.getElementById('ai-parse-btn').disabled=false;
+
+  _aiEnsurePanel(){
+    if(document.getElementById('ai-panel')) return;
+    const p=document.createElement('div');
+    p.id='ai-panel';
+    p.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:9999;display:flex;flex-direction:column;background:var(--card);border-top:1px solid var(--line);border-radius:20px 20px 0 0;max-height:70vh;box-shadow:0 -4px 32px rgba(0,0,0,.18);';
+    p.innerHTML=`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px;flex-shrink:0;">
+        <span style="font:600 15px/1 var(--font-d);">✦ Claude 내역 파싱</span>
+        <button onclick="App.aiClose()" style="border:0;background:transparent;font-size:20px;color:var(--muted);line-height:1;">✕</button>
+      </div>
+      <div id="ai-msgs" style="flex:1;overflow-y:auto;padding:0 14px 10px;display:flex;flex-direction:column;gap:10px;"></div>
+      <div style="padding:10px 14px max(14px,env(safe-area-inset-bottom));border-top:1px solid var(--line);flex-shrink:0;">
+        <div style="display:flex;align-items:flex-end;gap:8px;background:var(--chip);border:1px solid var(--line);border-radius:14px;padding:8px 10px 8px 14px;">
+          <textarea id="ai-input" rows="2" placeholder="Ctrl+V로 카카오뱅크·토스 문자, 엑셀 내역 붙여넣기" style="flex:1;background:transparent;border:0;outline:none;font:400 13px/1.6 var(--font-t);color:var(--text);resize:none;max-height:120px;overflow-y:auto;"></textarea>
+          <button onclick="App._aiSend()" style="background:var(--accent);color:#fff;border:0;border-radius:9px;padding:7px 13px;font:600 13px/1 var(--font-t);flex-shrink:0;align-self:flex-end;">전송</button>
+        </div>
+        <div style="font:400 11px/1.4 var(--font-t);color:var(--muted);margin-top:6px;padding:0 2px;">붙여넣기하면 자동 전송 · 거래 없는 텍스트는 무시됩니다</div>
+      </div>`;
+    document.body.appendChild(p);
+    const ta=document.getElementById('ai-input');
+    ta.addEventListener('paste',()=>setTimeout(()=>App._aiSend(),0));
+    ta.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();App._aiSend();}});
   },
-  aiClose(){
-    const m=document.getElementById('ai-modal');
-    if(m) m.style.display='none';
-    _aiParsed=null;
+  _aiShow(){
+    const p=document.getElementById('ai-panel');
+    p.style.display='flex';
+    setTimeout(()=>{const ta=document.getElementById('ai-input');if(ta)ta.focus();},80);
   },
-  async aiParse(){
-    const text=(document.getElementById('ai-text').value||'').trim();
-    if(!text) return toast('텍스트를 붙여넣어 주세요');
-    const btn=document.getElementById('ai-parse-btn');
-    btn.textContent='분석 중...'; btn.disabled=true;
+  _aiAddMsg(role,html){
+    const msgs=document.getElementById('ai-msgs');
+    if(!msgs) return;
+    const isUser=role==='user';
+    const div=document.createElement('div');
+    div.style.cssText=`display:flex;justify-content:${isUser?'flex-end':'flex-start'};`;
+    div.innerHTML=`<div style="max-width:88%;background:${isUser?'var(--accent)':'var(--chip)'};color:${isUser?'#fff':'var(--text)'};border-radius:${isUser?'16px 16px 4px 16px':'16px 16px 16px 4px'};padding:10px 14px;font:400 13px/1.6 var(--font-t);">${html}</div>`;
+    msgs.appendChild(div);
+    msgs.scrollTop=msgs.scrollHeight;
+  },
+  async _aiSend(){
+    const ta=document.getElementById('ai-input');
+    if(!ta) return;
+    const text=ta.value.trim();
+    if(!text) return;
+    if(!_aiKey) return toast('설정에서 Claude API 키를 먼저 입력하세요');
+    ta.value='';
+    ta.style.height='auto';
+    App._aiAddMsg('user',text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>'));
+    const loadId='ai-load-'+Date.now();
+    App._aiAddMsg('assistant',`<span id="${loadId}" style="color:var(--muted);">분석 중<span class="ai-dot">.</span><span class="ai-dot">.</span><span class="ai-dot">.</span></span>`);
     try{
       const res=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'x-api-key':_aiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},
-        body:JSON.stringify({
-          model:'claude-haiku-4-5-20251001',
-          max_tokens:1024,
-          messages:[{role:'user',content:`다음 텍스트에서 거래 내역을 파싱해서 JSON 배열만 반환해. 각 항목: {"date":"6/24","name":"내역명","amt":금액숫자}. amt는 지출 음수, 수입 양수. 날짜가 없으면 오늘 날짜 사용. JSON 배열 외 다른 텍스트 없이:\n\n${text}`}]
-        })
+        body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1024,
+          messages:[{role:'user',content:`다음 텍스트에서 거래 내역을 파싱해서 JSON 배열만 반환해. 각 항목: {"date":"6/24","name":"내역명","amt":금액숫자}. amt는 지출 음수, 수입 양수. 날짜가 없으면 오늘 날짜 사용. JSON 배열 외 다른 텍스트 없이:\n\n${text}`}]})
       });
       const data=await res.json();
       if(data.error) throw new Error(data.error.message);
       const raw=data.content?.[0]?.text||'[]';
-      _aiParsed=JSON.parse(raw.match(/\[[\s\S]*\]/)?.[0]||'[]');
-      if(!_aiParsed.length) throw new Error('파싱된 거래가 없습니다');
-      const prev=document.getElementById('ai-preview');
-      prev.style.display='block';
-      prev.innerHTML=`<div style="padding:10px 14px;font:600 12px/1 var(--font-t);color:var(--muted);border-bottom:1px solid var(--line);">${_aiParsed.length}건 파싱됨</div>`
-        +_aiParsed.map((t,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);">
-          <span style="font:400 12px/1 var(--font-t);color:var(--muted);width:36px;">${t.date}</span>
-          <span style="flex:1;font:400 13px/1 var(--font-t);">${esc(t.name)}</span>
-          <span style="font:600 13px/1 var(--font-t);color:${t.amt<0?'var(--red)':'var(--green)'};">${t.amt<0?'−':'+'}${fmt(Math.abs(t.amt))}</span>
-          <button onclick="App.aiRemove(${i})" style="border:0;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;">✕</button>
+      const txns=JSON.parse(raw.match(/\[[\s\S]*\]/)?.[0]||'[]');
+      if(!txns.length) throw new Error('거래 내역을 찾을 수 없습니다');
+      const msgId='ai-result-'+Date.now();
+      const rows=txns.map((t,i)=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.08);">
+          <span style="font:400 11px/1 var(--font-t);color:var(--muted);width:32px;flex-shrink:0;">${t.date}</span>
+          <span style="flex:1;font:400 13px/1.2 var(--font-t);">${esc(t.name)}</span>
+          <span style="font:600 13px/1 var(--font-t);color:${+t.amt<0?'#ff453a':'#30d158'};">${+t.amt<0?'−':'+'}${fmt(Math.abs(t.amt))}</span>
+          <button onclick="this.closest('[data-txns]').querySelectorAll('[data-idx=\\'${i}\\']').forEach(el=>el.remove());this.closest('div').remove();" style="border:0;background:transparent;color:rgba(0,0,0,.3);font-size:12px;padding:0 2px;">✕</button>
         </div>`).join('');
-      document.getElementById('ai-confirm-btn').style.display='block';
-      btn.textContent='재분석'; btn.disabled=false;
+      const html=`<div data-txns="${msgId}">
+        <div style="font:600 12px/1 var(--font-t);margin-bottom:8px;">${txns.length}건 파싱됨</div>
+        ${rows}
+        <button onclick="App._aiConfirm('${msgId}')" style="margin-top:10px;width:100%;padding:8px;background:var(--accent);color:#fff;border:0;border-radius:10px;font:600 13px/1 var(--font-t);">가계부에 추가하기</button>
+      </div>`;
+      const loadEl=document.getElementById(loadId);
+      if(loadEl) loadEl.closest('div').querySelector('div').innerHTML=html;
+      // store txns on element
+      const container=document.querySelector(`[data-txns="${msgId}"]`);
+      if(container) container._txns=txns;
     }catch(e){
-      toast('오류: '+e.message);
-      btn.textContent='분석하기'; btn.disabled=false;
+      const loadEl=document.getElementById(loadId);
+      if(loadEl) loadEl.closest('div').querySelector('div').innerHTML=`<span style="color:#ff453a;">오류: ${e.message}</span>`;
     }
   },
-  aiRemove(i){
-    if(!_aiParsed) return;
-    _aiParsed.splice(i,1);
-    if(!_aiParsed.length){document.getElementById('ai-preview').style.display='none';document.getElementById('ai-confirm-btn').style.display='none';return;}
-    App.aiParse._refreshPreview?.();
-    // re-render preview
-    const prev=document.getElementById('ai-preview');
-    prev.innerHTML=`<div style="padding:10px 14px;font:600 12px/1 var(--font-t);color:var(--muted);border-bottom:1px solid var(--line);">${_aiParsed.length}건 파싱됨</div>`
-      +_aiParsed.map((t,i2)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);">
-        <span style="font:400 12px/1 var(--font-t);color:var(--muted);width:36px;">${t.date}</span>
-        <span style="flex:1;font:400 13px/1 var(--font-t);">${esc(t.name)}</span>
-        <span style="font:600 13px/1 var(--font-t);color:${t.amt<0?'var(--red)':'var(--green)'};">${t.amt<0?'−':'+'}${fmt(Math.abs(t.amt))}</span>
-        <button onclick="App.aiRemove(${i2})" style="border:0;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;">✕</button>
-      </div>`).join('');
-  },
-  aiConfirm(){
-    if(!_aiParsed?.length) return;
-    _aiParsed.forEach(t=>st.ledger.txns.push({date:t.date,name:t.name,amt:+t.amt||0}));
-    const n=_aiParsed.length;
-    App.aiClose(); render(); toast(`${n}건 추가됨 ✓`);
+  _aiConfirm(msgId){
+    const el=document.querySelector(`[data-txns="${msgId}"]`);
+    if(!el) return;
+    const txns=el._txns||[];
+    if(!txns.length) return toast('추가할 거래가 없습니다');
+    txns.forEach(t=>st.ledger.txns.push({date:t.date,name:t.name,amt:+t.amt||0}));
+    el.innerHTML=`<span style="color:#30d158;">✓ ${txns.length}건 추가됨</span>`;
+    render(); toast(`${txns.length}건 추가됨 ✓`);
   },
 
   fbSetup(){
@@ -1020,6 +1023,21 @@ window.App={
 render();
 if(_fbUrl) fbConnect();
 fetchWeather();
+
+// 전역 Ctrl+V: 현재 포커스가 일반 input/textarea가 아닐 때 Claude 채팅 열기
+document.addEventListener('paste', e => {
+  if(!_aiKey) return;
+  const ae=document.activeElement;
+  if(ae && (ae.tagName==='INPUT'||ae.tagName==='TEXTAREA') && ae.id!=='ai-input') return;
+  if(ae && ae.id==='ai-input') return; // ai-input 자체 paste는 핸들러가 처리
+  const text=(e.clipboardData||window.clipboardData).getData('text');
+  if(!text.trim()) return;
+  e.preventDefault();
+  App._aiEnsurePanel();
+  App._aiShow();
+  const ta=document.getElementById('ai-input');
+  if(ta){ta.value=text;setTimeout(()=>App._aiSend(),0);}
+});
 })();
 </script>
 </body>
