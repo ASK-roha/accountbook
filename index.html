@@ -522,16 +522,18 @@ const buildShared = () => {
     const inc=t.amt>0?t.amt:0, exp=t.amt<0?-t.amt:0;
     bal+=t.amt; tin+=inc; tout+=exp;
     if(isMob()){
-      return `<div class="erow" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--line);">
-        <div style="display:flex;flex-direction:column;gap:3px;">
+      return `<div class="erow" style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line);">
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;">
           <span style="font:400 11px/1 var(--font-t);color:var(--muted);">${esc(t.date)}</span>
-          <span style="font:400 14px/1.2 var(--font-t);">${esc(t.name)}</span>
+          <span style="font:400 14px/1.2 var(--font-t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.name)}</span>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
-          <span class="tnum" style="font:600 14px/1 var(--font-t);color:${t.amt>0?'var(--green)':'var(--red)'};">${t.amt>0?'+':'-'}${fmt(Math.abs(t.amt))}</span>
-          <span class="tnum" style="font:400 11px/1 var(--font-t);color:var(--muted);">${fmt(bal)}</span>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+            <span class="tnum" style="font:600 14px/1 var(--font-t);color:${t.amt>0?'var(--green)':'var(--red)'};">${t.amt>0?'+':'-'}${fmt(Math.abs(t.amt))}</span>
+            <span class="tnum" style="font:400 11px/1 var(--font-t);color:var(--muted);">${fmt(bal)}</span>
+          </div>
+          <button onclick="App.delTxn(${i})" class="del" style="background:transparent;color:var(--muted);font-size:14px;">✕</button>
         </div>
-        <button onclick="App.delTxn(${i})" class="del" style="background:transparent;color:var(--muted);font-size:14px;margin-left:8px;">✕</button>
       </div>`;
     }else{
       return `<div class="erow" style="display:grid;grid-template-columns:60px 1fr 100px 100px 110px 30px;align-items:center;padding:8px 20px;border-bottom:1px solid var(--line);">
