@@ -52,9 +52,9 @@ main{flex:1;min-width:0;padding:28px 34px 64px;overflow-y:auto;height:100vh}
 @media(max-width:768px){
   aside{display:none!important}
   .rp{display:none!important}
-  main{padding:16px 14px 80px!important;height:auto!important;overflow-y:unset!important}
-  body{overflow-y:auto}
-  #root{height:auto;overflow-y:auto}
+  main{padding:16px 14px 80px!important;height:auto!important;overflow-y:visible!important}
+  html,body{height:auto;overflow-y:auto}
+  #root{height:auto;min-height:unset;overflow-y:visible}
   .kb-bnav{display:flex}
 }
 </style>
