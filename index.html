@@ -1046,15 +1046,20 @@ window.App={
     const msgContent=img
       ?[{type:'image',source:{type:'base64',media_type:img.mediaType,data:img.data}},{type:'text',text:prompt}]
       :prompt;
+    const showErr=msg=>{const el=document.getElementById(loadId);if(el)el.closest('div').querySelector('div').innerHTML=`<span style="color:#ff453a;">오류: ${msg}</span>`;};
     try{
+      const ctrl=new AbortController();
+      const tid=setTimeout(()=>ctrl.abort(),30000);
       const res=await fetch('https://api.anthropic.com/v1/messages',{
+        signal:ctrl.signal,
         method:'POST',
         headers:{'x-api-key':_aiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},
         body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1024,
           messages:[{role:'user',content:msgContent}]})
       });
+      clearTimeout(tid);
       const data=await res.json();
-      if(data.error) throw new Error(data.error.message);
+      if(!res.ok) throw new Error(`${res.status} ${data.error?.message||res.statusText}`);
       const raw=data.content?.[0]?.text||'[]';
       const txns=JSON.parse(raw.match(/\[[\s\S]*\]/)?.[0]||'[]');
       if(!txns.length) throw new Error('거래 내역을 찾을 수 없습니다');
@@ -1077,8 +1082,7 @@ window.App={
       const container=document.querySelector(`[data-txns="${msgId}"]`);
       if(container) container._txns=txns;
     }catch(e){
-      const loadEl=document.getElementById(loadId);
-      if(loadEl) loadEl.closest('div').querySelector('div').innerHTML=`<span style="color:#ff453a;">오류: ${e.message}</span>`;
+      showErr(e.name==='AbortError'?'30초 초과 (타임아웃)':e.message);
     }
   },
   _aiConfirm(msgId){
