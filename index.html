@@ -575,7 +575,7 @@ const buildShared = () => {
     ${rows}
     ${isMob()?`<div style="display:flex;flex-direction:column;gap:8px;padding:11px 16px;background:var(--chip);">
       <div style="display:flex;gap:8px;">
-        <input class="kb-in" type="text" id="dd" value="${esc(d.date)}" oninput="App.editDraft('date',this.value)" placeholder="6/15" style="font-size:13px;flex:1;">
+        <input class="kb-in" type="text" id="dd" value="${esc(d.date)}" oninput="App.editDraft('date',this.value)" placeholder="${new Date().getMonth()+1}/${new Date().getDate()}" style="font-size:13px;flex:1;">
         <input class="kb-in" type="text" id="dn" value="${esc(d.name)}" oninput="App.editDraft('name',this.value)" placeholder="내용" style="font-size:13px;flex:1;">
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
@@ -584,7 +584,7 @@ const buildShared = () => {
         <button onclick="App.addTxn()" style="background:${st.accent};color:#fff;border-radius:9px;height:34px;width:34px;font:600 16px/1 var(--font-t);">＋</button>
       </div>
     </div>`:`<div style="display:grid;grid-template-columns:60px 1fr 100px 100px 34px;gap:8px;align-items:center;padding:11px 20px;background:var(--chip);">
-      <input class="kb-in" type="text" id="dd" value="${esc(d.date)}" oninput="App.editDraft('date',this.value)" placeholder="6/15" style="font-size:13px;">
+      <input class="kb-in" type="text" id="dd" value="${esc(d.date)}" oninput="App.editDraft('date',this.value)" placeholder="${new Date().getMonth()+1}/${new Date().getDate()}" style="font-size:13px;">
       <input class="kb-in" type="text" id="dn" value="${esc(d.name)}" oninput="App.editDraft('name',this.value)" placeholder="내용" style="font-size:13px;">
       <input class="kb-in" type="text" inputmode="numeric" id="di" value="${fmtI(d.inc)}" oninput="App.editDraft('inc',this.value)" placeholder="수입" style="font-size:13px;text-align:right;color:var(--green);">
       <input class="kb-in" type="text" inputmode="numeric" id="de" value="${fmtI(d.exp)}" oninput="App.editDraft('exp',this.value)" placeholder="지출" style="font-size:13px;text-align:right;color:var(--red);">
@@ -874,7 +874,8 @@ window.App={
   addTxn(){
     const d=st.draft, inc=parseAmt(d.inc), exp=parseAmt(d.exp);
     if(!d.name||(!inc&&!exp)){toast('내용과 금액을 입력하세요');return;}
-    st.ledger.txns.push({date:d.date||('6/'+new Date().getDate()),name:d.name,amt:inc>0?inc:-exp});
+    st.ledger.txns.push({date:d.date||`${new Date().getMonth()+1}/${new Date().getDate()}`,name:d.name,amt:inc>0?inc:-exp});
+    st.ledger.txns.sort((a,b)=>{const p=s=>{const m=s.match(/^(\d+)\/(\d+)/);return m?+m[1]*100+ +m[2]:9999;};return p(a.date)-p(b.date);});
     st.draft={date:'',name:'',inc:'',exp:''};
     render(); toast('거래 추가됨 ✓');
   },
@@ -1093,6 +1094,7 @@ window.App={
     const txns=el._txns||[];
     if(!txns.length) return toast('추가할 거래가 없습니다');
     txns.forEach(t=>st.ledger.txns.push({date:t.date,name:t.name,amt:+t.amt||0}));
+    st.ledger.txns.sort((a,b)=>{const p=s=>{const m=s.match(/^(\d+)\/(\d+)/);return m?+m[1]*100+ +m[2]:9999;};return p(a.date)-p(b.date);});
     el.innerHTML=`<span style="color:#30d158;">✓ ${txns.length}건 추가됨</span>`;
     st.page='shared'; persist(); render(); toast(`${txns.length}건 추가됨 ✓`);
   },
