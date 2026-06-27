@@ -1077,7 +1077,7 @@ window.App={
         <button onclick="App._aiConfirm('${msgId}')" style="margin-top:10px;width:100%;padding:8px;background:var(--accent);color:#fff;border:0;border-radius:10px;font:600 13px/1 var(--font-t);">가계부에 추가하기</button>
       </div>`;
       const loadEl=document.getElementById(loadId);
-      if(loadEl) loadEl.closest('div').querySelector('div').innerHTML=html;
+      if(loadEl) loadEl.closest('div').innerHTML=html;
       // store txns on element
       const container=document.querySelector(`[data-txns="${msgId}"]`);
       if(container) container._txns=txns;
