@@ -772,7 +772,7 @@ const render = () => {
   document.documentElement.style.setProperty('--accent',st.accent);
 
   const page={dash:buildDash,fixed:buildFixed,shared:buildShared,plan:buildPlan,settings:buildSettings}[st.page]||buildDash;
-  const monthNav=`<div style="position:sticky;top:0;z-index:10;display:flex;justify-content:flex-end;padding-bottom:4px;margin-bottom:8px;background:var(--bg);">
+  const monthNav=`<div style="display:flex;justify-content:flex-end;padding-bottom:4px;margin-bottom:8px;">
     <div style="display:inline-flex;align-items:center;gap:16px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 18px;box-shadow:0 1px 8px rgba(0,0,0,.07);">
       <button onclick="App.prevMonth()" style="background:transparent;border:0;color:var(--muted);font-size:13px;padding:0 2px;line-height:1;" ${st.month<=1?'disabled style="opacity:.3;background:transparent;border:0;color:var(--muted);font-size:13px;padding:0 2px;"':''}>◀</button>
       <span style="font:600 15px/1 var(--font-d);letter-spacing:-.3px;min-width:80px;text-align:center;">2026년 ${MN[st.month]}</span>
