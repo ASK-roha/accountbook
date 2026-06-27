@@ -401,7 +401,7 @@ const buildDash = () => {
       <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);">
         <span style="font:400 13px/1 var(--font-t);white-space:nowrap;">월급</span>
         <span style="display:inline-flex;align-items:baseline;gap:3px;">
-          <input id="si" class="kb-ghost" type="text" value="${fmt(+st.people[1].salary||0)}" oninput="App.editPerson(1,'salary',this.value)"
+          <input id="si" class="kb-ghost" type="text" inputmode="numeric" value="${fmt(+st.people[1].salary||0)}" oninput="App.editPerson(1,'salary',this.value)"
             style="text-align:right;border-bottom:2px solid ${st.people[1].accent};font:600 15px/1.2 var(--font-t);color:${st.people[1].accent};padding:2px 0;font-variant-numeric:tabular-nums;">
           <span style="color:var(--muted);font-size:12px;">원</span>
         </span>
@@ -460,7 +460,7 @@ const buildFixed = () => {
     const rows=p.rows.map((r,ri)=>`
       <div class="erow" style="display:flex;align-items:center;gap:8px;padding:5px 14px 5px 20px;border-bottom:1px solid var(--line);">
         <input class="kb-ghost" type="text" id="pn${pi}r${ri}" value="${esc(r.name)}" oninput="App.editRowName(${pi},${ri},this.value)" onfocus="if(this.value==='새 항목')this.select()" style="flex:1;min-width:0;font-size:14px;">
-        <input class="kb-ghost" type="text" id="pa${pi}r${ri}" value="${fmt(r.amt)}" oninput="App.editRowAmt(${pi},${ri},this.value)" style="width:96px;text-align:right;font-size:14px;font-weight:500;color:var(--red);font-variant-numeric:tabular-nums;">
+        <input class="kb-ghost" type="text" inputmode="numeric" id="pa${pi}r${ri}" value="${fmt(r.amt)}" oninput="App.editRowAmt(${pi},${ri},this.value)" style="width:96px;text-align:right;font-size:14px;font-weight:500;color:var(--red);font-variant-numeric:tabular-nums;">
         <button onclick="App.delRow(${pi},${ri})" class="del" style="background:transparent;color:var(--muted);font-size:15px;padding:2px 4px;">✕</button>
       </div>`).join('');
     return `
@@ -478,15 +478,15 @@ const buildFixed = () => {
       <div style="display:flex;gap:10px;padding:11px 20px;border-bottom:1px solid var(--line);">
         <label style="flex:1;display:flex;flex-direction:column;gap:4px;">
           <span style="font:400 11px/1 var(--font-t);color:var(--muted);">급여</span>
-          <input class="kb-in" type="text" id="ps${pi}" value="${fmt(p.salary)}" oninput="App.editPerson(${pi},'salary',this.value)" style="text-align:right;color:var(--green);font-weight:600;width:100%;">
+          <input class="kb-in" type="text" inputmode="numeric" id="ps${pi}" value="${fmt(p.salary)}" oninput="App.editPerson(${pi},'salary',this.value)" style="text-align:right;color:var(--green);font-weight:600;width:100%;">
         </label>
         <label style="flex:1;display:flex;flex-direction:column;gap:4px;">
           <span style="font:400 11px/1 var(--font-t);color:var(--muted);">용돈</span>
-          <input class="kb-in" type="text" id="pal${pi}" value="${fmt(p.allowance)}" oninput="App.editPerson(${pi},'allowance',this.value)" style="text-align:right;width:100%;">
+          <input class="kb-in" type="text" inputmode="numeric" id="pal${pi}" value="${fmt(p.allowance)}" oninput="App.editPerson(${pi},'allowance',this.value)" style="text-align:right;width:100%;">
         </label>
         <label style="flex:1;display:flex;flex-direction:column;gap:4px;">
           <span style="font:400 11px/1 var(--font-t);color:var(--muted);">카드값</span>
-          <input class="kb-in" type="text" id="pc${pi}" value="${fmt(card)}" oninput="App.editCard(${pi},this.value)" style="text-align:right;color:var(--red);width:100%;">
+          <input class="kb-in" type="text" inputmode="numeric" id="pc${pi}" value="${fmt(card)}" oninput="App.editCard(${pi},this.value)" style="text-align:right;color:var(--red);width:100%;">
         </label>
       </div>
       <div>${rows}</div>
@@ -556,7 +556,7 @@ const buildShared = () => {
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);">
       <label style="display:flex;align-items:center;gap:8px;">
         <span style="font:500 13px/1 var(--font-t);color:var(--muted);">이월 금액</span>
-        <input class="kb-in" type="text" id="lc" value="${fmt(st.ledger.carry)}" oninput="App.onCarry(this.value)" style="width:140px;text-align:right;font-weight:600;">
+        <input class="kb-in" type="text" inputmode="numeric" id="lc" value="${fmt(st.ledger.carry)}" oninput="App.onCarry(this.value)" style="width:140px;text-align:right;font-weight:600;">
       </label>
       <span style="font:400 12px/1 var(--font-t);color:var(--muted);">${st.ledger.txns.length}건의 거래</span>
     </div>
@@ -570,15 +570,15 @@ const buildShared = () => {
         <input class="kb-in" type="text" id="dn" value="${esc(d.name)}" oninput="App.editDraft('name',this.value)" placeholder="내용" style="font-size:13px;flex:1;">
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <input class="kb-in" type="text" id="di" value="${fmtI(d.inc)}" oninput="App.editDraft('inc',this.value)" placeholder="수입" style="font-size:13px;text-align:right;color:var(--green);flex:1;">
-        <input class="kb-in" type="text" id="de" value="${fmtI(d.exp)}" oninput="App.editDraft('exp',this.value)" placeholder="지출" style="font-size:13px;text-align:right;color:var(--red);flex:1;">
+        <input class="kb-in" type="text" inputmode="numeric" id="di" value="${fmtI(d.inc)}" oninput="App.editDraft('inc',this.value)" placeholder="수입" style="font-size:13px;text-align:right;color:var(--green);flex:1;">
+        <input class="kb-in" type="text" inputmode="numeric" id="de" value="${fmtI(d.exp)}" oninput="App.editDraft('exp',this.value)" placeholder="지출" style="font-size:13px;text-align:right;color:var(--red);flex:1;">
         <button onclick="App.addTxn()" style="background:${st.accent};color:#fff;border-radius:9px;height:34px;width:34px;font:600 16px/1 var(--font-t);">＋</button>
       </div>
     </div>`:`<div style="display:grid;grid-template-columns:60px 1fr 100px 100px 34px;gap:8px;align-items:center;padding:11px 20px;background:var(--chip);">
       <input class="kb-in" type="text" id="dd" value="${esc(d.date)}" oninput="App.editDraft('date',this.value)" placeholder="6/15" style="font-size:13px;">
       <input class="kb-in" type="text" id="dn" value="${esc(d.name)}" oninput="App.editDraft('name',this.value)" placeholder="내용" style="font-size:13px;">
-      <input class="kb-in" type="text" id="di" value="${fmtI(d.inc)}" oninput="App.editDraft('inc',this.value)" placeholder="수입" style="font-size:13px;text-align:right;color:var(--green);">
-      <input class="kb-in" type="text" id="de" value="${fmtI(d.exp)}" oninput="App.editDraft('exp',this.value)" placeholder="지출" style="font-size:13px;text-align:right;color:var(--red);">
+      <input class="kb-in" type="text" inputmode="numeric" id="di" value="${fmtI(d.inc)}" oninput="App.editDraft('inc',this.value)" placeholder="수입" style="font-size:13px;text-align:right;color:var(--green);">
+      <input class="kb-in" type="text" inputmode="numeric" id="de" value="${fmtI(d.exp)}" oninput="App.editDraft('exp',this.value)" placeholder="지출" style="font-size:13px;text-align:right;color:var(--red);">
       <button onclick="App.addTxn()" style="background:${st.accent};color:#fff;border-radius:9px;height:34px;font:600 16px/1 var(--font-t);width:100%;">＋</button>
     </div>`}
   </div>
@@ -599,21 +599,21 @@ const buildPlan = () => {
   const itemRows=pl.items.map((it,i)=>`
     <div class="erow" style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);">
       <input class="kb-ghost" type="text" value="${esc(it.name)}" oninput="App.editPlanItem(${i},'name',this.value)" onfocus="if(this.value==='새 항목')this.select()" style="flex:1;min-width:0;font-size:14px;">
-      <input class="kb-ghost" type="text" value="${fmt(it.amt)}" oninput="App.editPlanItem(${i},'amt',this.value)" style="width:90px;text-align:right;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--sub);">
+      <input class="kb-ghost" type="text" inputmode="numeric" value="${fmt(it.amt)}" oninput="App.editPlanItem(${i},'amt',this.value)" style="width:90px;text-align:right;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--sub);">
       <button onclick="App.delPlanItem(${i})" class="del" style="background:transparent;color:var(--muted);font-size:14px;padding:2px 4px;">✕</button>
     </div>`).join('');
 
   const cfRows=pl.cashFixed.map((c,i)=>`
     <div class="erow" style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);">
       <input class="kb-ghost" type="text" value="${esc(c.name)}" oninput="App.editCashFixed(${i},'name',this.value)" onfocus="if(this.value==='새 항목')this.select()" style="flex:1;min-width:0;font-size:14px;">
-      <input class="kb-ghost" type="text" value="${fmt(c.amt)}" oninput="App.editCashFixed(${i},'amt',this.value)" style="width:90px;text-align:right;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--sub);">
+      <input class="kb-ghost" type="text" inputmode="numeric" value="${fmt(c.amt)}" oninput="App.editCashFixed(${i},'amt',this.value)" style="width:90px;text-align:right;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--sub);">
       <button onclick="App.delCashFixed(${i})" class="del" style="background:transparent;color:var(--muted);font-size:14px;padding:2px 4px;">✕</button>
     </div>`).join('');
 
   const eduRows=pl.education.map((e,i)=>`
     <div class="erow" style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);">
       <input class="kb-ghost" type="text" value="${esc(e.name)}" oninput="App.editEdu(${i},'name',this.value)" onfocus="if(this.value==='새 항목')this.select()" style="flex:1;min-width:0;font-size:14px;">
-      <input class="kb-ghost" type="text" value="${fmt(e.amt)}" oninput="App.editEdu(${i},'amt',this.value)" style="width:90px;text-align:right;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--sub);">
+      <input class="kb-ghost" type="text" inputmode="numeric" value="${fmt(e.amt)}" oninput="App.editEdu(${i},'amt',this.value)" style="width:90px;text-align:right;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--sub);">
       <button onclick="App.delEdu(${i})" class="del" style="background:transparent;color:var(--muted);font-size:14px;padding:2px 4px;">✕</button>
     </div>`).join('');
 
