@@ -1092,7 +1092,7 @@ window.App={
     if(!txns.length) return toast('추가할 거래가 없습니다');
     txns.forEach(t=>st.ledger.txns.push({date:t.date,name:t.name,amt:+t.amt||0}));
     el.innerHTML=`<span style="color:#30d158;">✓ ${txns.length}건 추가됨</span>`;
-    render(); toast(`${txns.length}건 추가됨 ✓`);
+    st.page='shared'; persist(); render(); toast(`${txns.length}건 추가됨 ✓`);
   },
 
   async fbFetch(){
