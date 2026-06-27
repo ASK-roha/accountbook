@@ -72,6 +72,7 @@ let _fbUrl = (localStorage.getItem('kb-fb-url')||'').trim().replace(/\/$/,'');
 let _sse = null, _synced = false, _wt = null;
 let _aiKey = localStorage.getItem('kb-ai-key') || '';
 let _aiMsgs = [];
+let _aiPendingImage = null;
 let _memo = localStorage.getItem('kb-memo') || '';
 let _weather = null;
 let _clockInt = null;
@@ -945,15 +946,26 @@ window.App={
       </div>
       <div id="ai-msgs" style="flex:1;overflow-y:auto;padding:0 14px 10px;display:flex;flex-direction:column;gap:10px;"></div>
       <div style="padding:10px 14px max(14px,env(safe-area-inset-bottom));border-top:1px solid var(--line);flex-shrink:0;">
+        <div id="ai-img-preview" style="display:none;padding:4px 0;"></div>
         <div style="display:flex;align-items:flex-end;gap:8px;background:var(--chip);border:1px solid var(--line);border-radius:14px;padding:8px 10px 8px 14px;">
-          <textarea id="ai-input" rows="2" placeholder="Ctrl+V로 카카오뱅크·토스 문자, 엑셀 내역 붙여넣기" style="flex:1;background:transparent;border:0;outline:none;font:400 13px/1.6 var(--font-t);color:var(--text);resize:none;max-height:120px;overflow-y:auto;"></textarea>
+          <textarea id="ai-input" rows="2" placeholder="Ctrl+V로 카카오뱅크·토스 문자, 엑셀 내역·사진 붙여넣기" style="flex:1;background:transparent;border:0;outline:none;font:400 13px/1.6 var(--font-t);color:var(--text);resize:none;max-height:120px;overflow-y:auto;"></textarea>
           <button onclick="App._aiSend()" style="background:var(--accent);color:#fff;border:0;border-radius:9px;padding:7px 13px;font:600 13px/1 var(--font-t);flex-shrink:0;align-self:flex-end;">전송</button>
         </div>
-        <div style="font:400 11px/1.4 var(--font-t);color:var(--muted);margin-top:6px;padding:0 2px;">붙여넣기하면 자동 전송 · 거래 없는 텍스트는 무시됩니다</div>
+        <div style="font:400 11px/1.4 var(--font-t);color:var(--muted);margin-top:6px;padding:0 2px;">붙여넣기하면 자동 전송 · 텍스트·사진 모두 지원</div>
       </div>`;
     document.body.appendChild(p);
     const ta=document.getElementById('ai-input');
-    ta.addEventListener('paste',()=>setTimeout(()=>App._aiSend(),0));
+    ta.addEventListener('paste',e=>{
+      const items=e.clipboardData?.items||[];
+      for(const item of items){
+        if(item.type.startsWith('image/')){
+          e.preventDefault();
+          App._aiSetImage(item.getAsFile());
+          return;
+        }
+      }
+      setTimeout(()=>App._aiSend(),0);
+    });
     ta.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();App._aiSend();}});
   },
   _aiShow(){
@@ -971,23 +983,60 @@ window.App={
     msgs.appendChild(div);
     msgs.scrollTop=msgs.scrollHeight;
   },
+  _aiSetImage(file){
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const dataUrl=e.target.result;
+      const base64=dataUrl.split(',')[1];
+      _aiPendingImage={mediaType:file.type,data:base64,dataUrl};
+      const preview=document.getElementById('ai-img-preview');
+      if(preview){
+        preview.style.display='block';
+        preview.innerHTML=`<div style="position:relative;display:inline-block;">
+          <img src="${dataUrl}" style="max-height:72px;max-width:180px;border-radius:8px;border:1px solid var(--line);display:block;">
+          <button onclick="App._aiClearImage()" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#ff453a;color:#fff;border:0;font-size:11px;line-height:18px;cursor:pointer;text-align:center;">✕</button>
+        </div>`;
+      }
+      App._aiEnsurePanel();
+      App._aiShow();
+      setTimeout(()=>App._aiSend(),0);
+    };
+    reader.readAsDataURL(file);
+  },
+  _aiClearImage(){
+    _aiPendingImage=null;
+    const preview=document.getElementById('ai-img-preview');
+    if(preview){preview.style.display='none';preview.innerHTML='';}
+  },
   async _aiSend(){
     const ta=document.getElementById('ai-input');
     if(!ta) return;
     const text=ta.value.trim();
-    if(!text) return;
+    const img=_aiPendingImage;
+    if(!text && !img) return;
     if(!_aiKey) return toast('설정에서 Claude API 키를 먼저 입력하세요');
+    _aiPendingImage=null;
+    App._aiClearImage();
     ta.value='';
     ta.style.height='auto';
-    App._aiAddMsg('user',text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>'));
+    if(img){
+      App._aiAddMsg('user',`<img src="${img.dataUrl}" style="max-width:200px;max-height:110px;border-radius:8px;display:block;margin-bottom:${text?'6px':'0'}">${text?text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>'):''}`);
+    } else {
+      App._aiAddMsg('user',text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>'));
+    }
     const loadId='ai-load-'+Date.now();
     App._aiAddMsg('assistant',`<span id="${loadId}" style="color:var(--muted);">분석 중<span class="ai-dot">.</span><span class="ai-dot">.</span><span class="ai-dot">.</span></span>`);
+    const prompt=`다음 ${img?'사진':'텍스트'}에서 거래 내역을 파싱해서 JSON 배열만 반환해. 각 항목: {"date":"6/24","name":"내역명","amt":금액숫자}. amt는 지출 음수, 수입 양수. 날짜가 없으면 오늘 날짜 사용. JSON 배열 외 다른 텍스트 없이:${text?'\n\n'+text:''}`;
+    const msgContent=img
+      ?[{type:'image',source:{type:'base64',media_type:img.mediaType,data:img.data}},{type:'text',text:prompt}]
+      :prompt;
     try{
       const res=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'x-api-key':_aiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},
         body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1024,
-          messages:[{role:'user',content:`다음 텍스트에서 거래 내역을 파싱해서 JSON 배열만 반환해. 각 항목: {"date":"6/24","name":"내역명","amt":금액숫자}. amt는 지출 음수, 수입 양수. 날짜가 없으면 오늘 날짜 사용. JSON 배열 외 다른 텍스트 없이:\n\n${text}`}]})
+          messages:[{role:'user',content:msgContent}]})
       });
       const data=await res.json();
       if(data.error) throw new Error(data.error.message);
@@ -1063,7 +1112,17 @@ document.addEventListener('paste', e => {
   if(!_aiKey) return;
   const ae=document.activeElement;
   if(ae && (ae.tagName==='INPUT'||ae.tagName==='TEXTAREA') && ae.id!=='ai-input') return;
-  if(ae && ae.id==='ai-input') return; // ai-input 자체 paste는 핸들러가 처리
+  // 이미지 먼저 확인
+  const items=e.clipboardData?.items||[];
+  for(const item of items){
+    if(item.type.startsWith('image/')){
+      e.preventDefault();
+      App._aiEnsurePanel();
+      App._aiSetImage(item.getAsFile());
+      return;
+    }
+  }
+  if(ae && ae.id==='ai-input') return;
   const text=(e.clipboardData||window.clipboardData).getData('text');
   if(!text.trim()) return;
   e.preventDefault();
