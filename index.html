@@ -167,6 +167,11 @@ const mDeposit = m => {
   const cards=st.people.reduce((a,_,pi)=>a+(st.cardOv[m]?.[pi]||0),0);
   return inc - M.fixed - cards - al;
 };
+const sortTxns = () => {
+  const p=s=>{const m=s.match(/^(\d+)\/(\d+)/);return m?+m[1]*100+ +m[2]:9999;};
+  st.ledger.txns.sort((a,b)=>p(a.date)-p(b.date));
+};
+sortTxns();
 const persist = () => {
   try{localStorage.setItem('kb-v1',JSON.stringify({page:st.page,month:st.month,dark:st.dark,incOv:st.incOv,alOv:st.alOv,cardOv:st.cardOv,people:st.people,ledger:st.ledger,plan:st.plan}));}catch(e){}
   fbWrite();
@@ -233,7 +238,7 @@ const drawCharts = () => {
     const shared=Math.abs(st.ledger.txns.filter(t=>t.amt<0).reduce((a,t)=>a+t.amt,0));
     _dn=new Chart(dc,{type:'doughnut',
       data:{labels:['ki 고정','sk 고정','공동생활비'],datasets:[{data:[ki,sk,shared||1],backgroundColor:['#8baee8','#7dc8a0','#b4a0e5'],borderWidth:0}]},
-      options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      options:{responsive:true,maintainAspectRatio:false,cutout:'62%',animation:false,
         plugins:{legend:{position:'bottom',labels:{color:tick,boxWidth:10,boxHeight:10,usePointStyle:true,pointStyle:'rect',font:{size:12}}}}}});
   }
 
@@ -255,7 +260,7 @@ const drawCharts = () => {
         {label:'수입',data:incData,backgroundColor:incData.map((_,i)=>(i+1)===st.month?'rgba(52,199,89,.85)':iC),borderRadius:4,maxBarThickness:20},
         {label:'지출',data:expData,backgroundColor:expData.map((_,i)=>(i+1)===st.month?'rgba(255,69,58,.8)':eC),borderRadius:4,maxBarThickness:20}
       ]},
-      options:{responsive:true,maintainAspectRatio:false,
+      options:{responsive:true,maintainAspectRatio:false,animation:false,
         plugins:{
           legend:{display:true,position:'top',align:'end',labels:{color:tick,boxWidth:10,boxHeight:10,usePointStyle:true,pointStyle:'rect',font:{size:11}}},
           tooltip:{callbacks:{title:c=>`${c[0].label}`,label:c=>`${c.dataset.label}: ${fmt(c.raw)}`}}
@@ -828,7 +833,11 @@ const render = () => {
     </div>
   </div>`;
   const showMonthNav = st.page !== 'settings';
+  const prevScrollY=isMob()?window.scrollY:0;
+  const prevScrollTop=!isMob()?(document.querySelector('main')?.scrollTop||0):0;
   root.innerHTML=buildSidebar()+`<main>${showMonthNav?monthNav:''}${page()}</main>`+buildRightPanel()+buildBottomNav();
+  if(isMob()) window.scrollTo(0,prevScrollY);
+  else{const m=document.querySelector('main');if(m)m.scrollTop=prevScrollTop;}
   startClock();
 
   if(_fid){const el=document.getElementById(_fid);if(el){el.focus();try{el.setSelectionRange(el.value.length,el.value.length);}catch(e){}}}
@@ -875,7 +884,7 @@ window.App={
     const d=st.draft, inc=parseAmt(d.inc), exp=parseAmt(d.exp);
     if(!d.name||(!inc&&!exp)){toast('내용과 금액을 입력하세요');return;}
     st.ledger.txns.push({date:d.date||`${new Date().getMonth()+1}/${new Date().getDate()}`,name:d.name,amt:inc>0?inc:-exp});
-    st.ledger.txns.sort((a,b)=>{const p=s=>{const m=s.match(/^(\d+)\/(\d+)/);return m?+m[1]*100+ +m[2]:9999;};return p(a.date)-p(b.date);});
+    sortTxns();
     st.draft={date:'',name:'',inc:'',exp:''};
     render(); toast('거래 추가됨 ✓');
   },
@@ -1094,7 +1103,7 @@ window.App={
     const txns=el._txns||[];
     if(!txns.length) return toast('추가할 거래가 없습니다');
     txns.forEach(t=>st.ledger.txns.push({date:t.date,name:t.name,amt:+t.amt||0}));
-    st.ledger.txns.sort((a,b)=>{const p=s=>{const m=s.match(/^(\d+)\/(\d+)/);return m?+m[1]*100+ +m[2]:9999;};return p(a.date)-p(b.date);});
+    sortTxns();
     el.innerHTML=`<span style="color:#30d158;">✓ ${txns.length}건 추가됨</span>`;
     st.page='shared'; persist(); render(); toast(`${txns.length}건 추가됨 ✓`);
   },
