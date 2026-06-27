@@ -116,23 +116,21 @@ const PCOLS=['#0066cc','#34c759','#5e9eff','#ff9f0a','#5ac8fa','#bf5af2','#ff453
 /* ── State ─────────────────────────────────────────────────────────── */
 let sv={};
 try{sv=JSON.parse(localStorage.getItem('kb-v1')||'{}');}catch(e){}
-const DEF_PLAN={income:7931770,items:[
-  {name:'고정지출',amt:3264313,note:''},
-  {name:'적금',amt:1000000,note:''},
-  {name:'sk 용돈',amt:650000,note:''},
-  {name:'현금화 (바로쓸돈)',amt:650000,note:''},
-  {name:'ki 용돈',amt:550000,note:''},
-  {name:'생활비',amt:400000,note:''},
-  {name:'영어학원',amt:400000,note:'5·6월 완료'},
-  {name:'탑산 방과후',amt:345780,note:'한자·교재'},
-  {name:'태권도',amt:150000,note:''},
-  {name:'미술',amt:120000,note:''},
-  {name:'웅진',amt:117000,note:''},
-],cashFixed:[
-  {name:'하온 교정비',amt:50000},{name:'경조사비',amt:150000},{name:'엔진오일',amt:50000},
-  {name:'자동차보험',amt:100000},{name:'자동차세',amt:50000},{name:'재산세',amt:50000},
-  {name:'여행비',amt:100000},{name:'십일조',amt:100000},
-]};
+const DEF_PLAN={
+  items:[
+    {name:'적금',amt:1000000},{name:'sk 용돈',amt:650000},{name:'예비비(현금화)',amt:650000},
+    {name:'ki 용돈',amt:550000},{name:'생활비',amt:400000},
+  ],
+  cashFixed:[
+    {name:'하온 교정비',amt:50000},{name:'경조사비',amt:150000},{name:'엔진오일',amt:50000},
+    {name:'자동차보험',amt:100000},{name:'자동차세',amt:50000},{name:'재산세',amt:50000},
+    {name:'여행비',amt:100000},{name:'십일조',amt:100000},
+  ],
+  education:[
+    {name:'영어학원',amt:400000},{name:'탑산 방과후',amt:345780},
+    {name:'태권도',amt:150000},{name:'미술',amt:120000},{name:'웅진',amt:117000},
+  ],
+};
 const st={
   page: sv.page||'dash',
   month: sv.month||6,
@@ -143,7 +141,14 @@ const st={
   cardOv: sv.cardOv||{},
   people: (sv.people&&sv.people.length===2)?sv.people:JSON.parse(JSON.stringify(DEF_PEOPLE)),
   ledger: sv.ledger||JSON.parse(JSON.stringify(DEF_LEDGER)),
-  plan: sv.plan||JSON.parse(JSON.stringify(DEF_PLAN)),
+  plan: (()=>{
+    const p=sv.plan||{};
+    return {
+      items: Array.isArray(p.items)&&p.items.length ? p.items.filter(i=>i.name!=='고정지출') : JSON.parse(JSON.stringify(DEF_PLAN.items)),
+      cashFixed: Array.isArray(p.cashFixed) ? p.cashFixed : JSON.parse(JSON.stringify(DEF_PLAN.cashFixed)),
+      education: Array.isArray(p.education) ? p.education : JSON.parse(JSON.stringify(DEF_PLAN.education)),
+    };
+  })(),
   draft: {date:'',name:'',inc:'',exp:''},
 };
 if(st.people[0].name==='기남'){st.people[0].name='ki';st.people[0].initial='K';}
@@ -583,56 +588,83 @@ const buildShared = () => {
 /* ── Plan ──────────────────────────────────────────────────────────── */
 const buildPlan = () => {
   const pl=st.plan;
-  const pmax=Math.max(...pl.items.map(i=>i.amt),1);
+  const totalInc=st.people.reduce((a,p)=>a+(+p.salary||0),0);
+  const totalFixed=st.people.reduce((a,p)=>a+pFixed(p),0);
+  const avail=totalInc-totalFixed;
   const ptotal=pl.items.reduce((a,i)=>a+(+i.amt||0),0);
+  const remain=avail-ptotal;
   const ctotal=pl.cashFixed.reduce((a,c)=>a+(+c.amt||0),0);
-  const items=pl.items.map((it,i)=>`
-    <div class="erow" style="display:flex;align-items:center;gap:8px;padding:5px 0 8px;border-bottom:1px solid var(--line);">
+  const etotal=pl.education.reduce((a,e)=>a+(+e.amt||0),0);
+
+  const itemRows=pl.items.map((it,i)=>`
+    <div class="erow" style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);">
       <input class="kb-ghost" type="text" value="${esc(it.name)}" oninput="App.editPlanItem(${i},'name',this.value)" onfocus="if(this.value==='새 항목')this.select()" style="flex:1;min-width:0;font-size:14px;">
-      <input class="kb-ghost" type="text" value="${fmt(it.amt)}" oninput="App.editPlanItem(${i},'amt',this.value)" style="width:90px;text-align:right;font-size:14px;font-weight:600;color:${PCOLS[i%PCOLS.length]};font-variant-numeric:tabular-nums;">
+      <input class="kb-ghost" type="text" value="${fmt(it.amt)}" oninput="App.editPlanItem(${i},'amt',this.value)" style="width:90px;text-align:right;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--sub);">
       <button onclick="App.delPlanItem(${i})" class="del" style="background:transparent;color:var(--muted);font-size:14px;padding:2px 4px;">✕</button>
-    </div>
-    <div style="height:5px;border-radius:9999px;background:var(--chip);overflow:hidden;margin-bottom:6px;"><div style="height:100%;width:${(it.amt/pmax*100).toFixed(1)}%;background:${PCOLS[i%PCOLS.length]};transition:width .2s;"></div></div>`).join('');
-  const cf=pl.cashFixed.map((c,i)=>`
+    </div>`).join('');
+
+  const cfRows=pl.cashFixed.map((c,i)=>`
     <div class="erow" style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);">
       <input class="kb-ghost" type="text" value="${esc(c.name)}" oninput="App.editCashFixed(${i},'name',this.value)" onfocus="if(this.value==='새 항목')this.select()" style="flex:1;min-width:0;font-size:14px;">
-      <input class="kb-ghost" type="text" value="${fmt(c.amt)}" oninput="App.editCashFixed(${i},'amt',this.value)" style="width:90px;text-align:right;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;">
+      <input class="kb-ghost" type="text" value="${fmt(c.amt)}" oninput="App.editCashFixed(${i},'amt',this.value)" style="width:90px;text-align:right;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--sub);">
       <button onclick="App.delCashFixed(${i})" class="del" style="background:transparent;color:var(--muted);font-size:14px;padding:2px 4px;">✕</button>
     </div>`).join('');
+
+  const eduRows=pl.education.map((e,i)=>`
+    <div class="erow" style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);">
+      <input class="kb-ghost" type="text" value="${esc(e.name)}" oninput="App.editEdu(${i},'name',this.value)" onfocus="if(this.value==='새 항목')this.select()" style="flex:1;min-width:0;font-size:14px;">
+      <input class="kb-ghost" type="text" value="${fmt(e.amt)}" oninput="App.editEdu(${i},'amt',this.value)" style="width:90px;text-align:right;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--sub);">
+      <button onclick="App.delEdu(${i})" class="del" style="background:transparent;color:var(--muted);font-size:14px;padding:2px 4px;">✕</button>
+    </div>`).join('');
+
   return `<div>
   <div style="font:600 28px/1.1 var(--font-d);letter-spacing:-.5px;margin-bottom:6px;">계획</div>
   <div style="font:400 14px/1.4 var(--font-t);color:var(--muted);margin-bottom:20px;">두 사람 급여를 합쳐 고정지출·교육비·적금을 배분하는 반기 계획</div>
-  <div style="display:grid;grid-template-columns:${isMob()?'1fr':'1.1fr 1fr'};gap:16px;">
+  <div style="display:grid;grid-template-columns:${isMob()?'1fr':'1.1fr 1fr'};gap:16px;margin-bottom:16px;">
+
     <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
-      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;">
-        <span style="font:600 16px/1 var(--font-d);">현금화 배분</span>
-        <span style="display:inline-flex;align-items:baseline;gap:3px;">
-          <span style="font:400 12px/1 var(--font-t);color:var(--muted);">수입</span>
-          <input class="kb-ghost" type="text" value="${fmt(pl.income)}" oninput="App.editPlanIncome(this.value)" style="width:80px;text-align:right;font:600 13px/1 var(--font-t);color:var(--muted);border-bottom:1px dashed var(--line);font-variant-numeric:tabular-nums;">
-          <span style="font:400 12px/1 var(--font-t);color:var(--muted);">원</span>
-        </span>
+      <div style="font:600 16px/1 var(--font-d);margin-bottom:14px;">월간 예산 계획</div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);">
+        <span style="font:400 13px/1 var(--font-t);color:var(--muted);">총 수입</span>
+        <span class="tnum" style="font:600 14px/1 var(--font-t);color:var(--green);">${fmt(totalInc)}원</span>
       </div>
-      ${items}
-      <button onclick="App.addPlanItem()" style="width:100%;margin-top:10px;border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:9px;padding:6px 12px;font:500 13px/1 var(--font-t);">＋ 항목 추가</button>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:13px;border-top:2px solid var(--text);">
-        <span style="font:600 14px/1 var(--font-t);">배분 합계</span><span class="tnum" style="font:600 17px/1 var(--font-d);">${fmt(ptotal)}원</span>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:2px solid var(--line);">
+        <span style="font:400 13px/1 var(--font-t);color:var(--muted);">총 고정지출</span>
+        <span class="tnum" style="font:600 14px/1 var(--font-t);color:var(--red);">−${fmt(totalFixed)}원</span>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
-        <span style="font:400 13px/1 var(--font-t);color:var(--muted);">남은 돈 (→ 생활비)</span>
-        <span class="tnum" style="font:600 15px/1 var(--font-d);color:${st.accent};">${fmt(pl.income-ptotal)}원</span>
+      <div style="display:flex;justify-content:space-between;padding:10px 0;margin-bottom:8px;">
+        <span style="font:700 14px/1 var(--font-t);">가용 금액</span>
+        <span class="tnum" style="font:700 17px/1 var(--font-d);">${fmt(avail)}원</span>
+      </div>
+      ${itemRows}
+      <button onclick="App.addPlanItem()" style="width:100%;margin-top:8px;border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:9px;padding:6px 12px;font:500 13px/1 var(--font-t);">＋ 항목 추가</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:2px solid var(--text);">
+        <span style="font:600 14px/1 var(--font-t);">남은 돈</span>
+        <span class="tnum" style="font:700 18px/1 var(--font-d);color:${remain>=0?'var(--accent)':'var(--red)'};">${fmt(remain)}원</span>
       </div>
     </div>
+
     <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
-      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;">
-        <span style="font:600 16px/1 var(--font-d);">현금화 고정지출</span>
-        <span style="font:400 12px/1 var(--font-t);color:var(--muted);">매달 적립</span>
+      <div style="font:600 16px/1 var(--font-d);margin-bottom:14px;">현금화 적립 항목</div>
+      ${cfRows}
+      <button onclick="App.addCashFixed()" style="width:100%;margin-top:8px;border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:9px;padding:6px 12px;font:500 13px/1 var(--font-t);">＋ 항목 추가</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:2px solid var(--text);">
+        <span style="font:600 14px/1 var(--font-t);">합계</span>
+        <span class="tnum" style="font:700 17px/1 var(--font-d);color:${st.accent};">${fmt(ctotal)}원</span>
       </div>
-      ${cf}
-      <button onclick="App.addCashFixed()" style="width:100%;margin-top:10px;border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:9px;padding:6px 12px;font:500 13px/1 var(--font-t);">＋ 항목 추가</button>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:13px;padding-top:13px;border-top:2px solid var(--text);">
-        <span style="font:600 14px/1 var(--font-t);">월 적립 합계</span>
-        <span class="tnum" style="font:600 17px/1 var(--font-d);color:${st.accent};">${fmt(ctotal)}원</span>
-      </div>
+      <div style="font:400 12px/1 var(--font-t);color:var(--muted);margin-top:6px;">매달 적립해야 할 예비비</div>
+    </div>
+  </div>
+
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <span style="font:600 16px/1 var(--font-d);">교육비</span>
+      <button onclick="App.addEdu()" style="border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:8px;padding:5px 12px;font:500 12px/1 var(--font-t);">+ 추가</button>
+    </div>
+    ${eduRows}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:2px solid var(--text);">
+      <span style="font:600 14px/1 var(--font-t);">합계</span>
+      <span class="tnum" style="font:700 17px/1 var(--font-d);">${fmt(etotal)}원</span>
     </div>
   </div>
 </div>`;
@@ -797,13 +829,15 @@ window.App={
   goPlan(){st.page='plan';render();},
   goSettings(){st.page='settings';render();},
 
-  editPlanIncome(v){st.plan.income=v===''?0:parseAmt(v);render();},
   editPlanItem(i,f,v){st.plan.items[i][f]=f==='amt'?(v===''?0:parseAmt(v)):v;f==='amt'?render():persist();},
   delPlanItem(i){st.plan.items.splice(i,1);render();},
-  addPlanItem(){st.plan.items.push({name:'새 항목',amt:0,note:''});render();},
+  addPlanItem(){st.plan.items.push({name:'새 항목',amt:0});render();},
   editCashFixed(i,f,v){st.plan.cashFixed[i][f]=f==='amt'?(v===''?0:parseAmt(v)):v;f==='amt'?render():persist();},
   delCashFixed(i){st.plan.cashFixed.splice(i,1);render();},
   addCashFixed(){st.plan.cashFixed.push({name:'새 항목',amt:0});render();},
+  editEdu(i,f,v){st.plan.education[i][f]=f==='amt'?(v===''?0:parseAmt(v)):v;f==='amt'?render():persist();},
+  delEdu(i){st.plan.education.splice(i,1);render();},
+  addEdu(){st.plan.education.push({name:'새 항목',amt:0});render();},
   setMonth(m){st.month=m;render();},
   prevMonth(){if(st.month>1){st.month--;render();}},
   nextMonth(){if(st.month<12){st.month++;render();}},
