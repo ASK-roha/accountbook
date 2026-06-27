@@ -961,10 +961,12 @@ window.App={
       <div style="padding:10px 14px max(14px,env(safe-area-inset-bottom));border-top:1px solid var(--line);flex-shrink:0;">
         <div id="ai-img-preview" style="display:none;padding:4px 0;"></div>
         <div style="display:flex;align-items:flex-end;gap:8px;background:var(--chip);border:1px solid var(--line);border-radius:14px;padding:8px 10px 8px 14px;">
-          <textarea id="ai-input" rows="2" placeholder="Ctrl+V로 카카오뱅크·토스 문자, 엑셀 내역·사진 붙여넣기" style="flex:1;background:transparent;border:0;outline:none;font:400 13px/1.6 var(--font-t);color:var(--text);resize:none;max-height:120px;overflow-y:auto;"></textarea>
+          <textarea id="ai-input" rows="2" placeholder="카카오뱅크·토스 문자, 엑셀 내역 붙여넣기" style="flex:1;background:transparent;border:0;outline:none;font:400 13px/1.6 var(--font-t);color:var(--text);resize:none;max-height:120px;overflow-y:auto;"></textarea>
+          <input id="ai-img-input" type="file" accept="image/*" style="display:none;" onchange="if(this.files[0])App._aiSetImage(this.files[0]);">
+          <button onclick="document.getElementById('ai-img-input').click()" style="background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:7px 10px;font:500 14px/1 var(--font-t);flex-shrink:0;align-self:flex-end;" title="사진 첨부">📷</button>
           <button onclick="App._aiSend()" style="background:var(--accent);color:#fff;border:0;border-radius:9px;padding:7px 13px;font:600 13px/1 var(--font-t);flex-shrink:0;align-self:flex-end;">전송</button>
         </div>
-        <div style="font:400 11px/1.4 var(--font-t);color:var(--muted);margin-top:6px;padding:0 2px;">붙여넣기하면 자동 전송 · 텍스트·사진 모두 지원</div>
+        <div style="font:400 11px/1.4 var(--font-t);color:var(--muted);margin-top:6px;padding:0 2px;">텍스트 붙여넣기 또는 📷로 사진 첨부 후 자동 파싱</div>
       </div>`;
     document.body.appendChild(p);
     const ta=document.getElementById('ai-input');
