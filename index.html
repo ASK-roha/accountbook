@@ -1046,7 +1046,7 @@ window.App={
     const msgContent=img
       ?[{type:'image',source:{type:'base64',media_type:img.mediaType,data:img.data}},{type:'text',text:prompt}]
       :prompt;
-    const showErr=msg=>{const el=document.getElementById(loadId);if(el)el.closest('div').querySelector('div').innerHTML=`<span style="color:#ff453a;">오류: ${msg}</span>`;};
+    const showErr=msg=>{const el=document.getElementById(loadId);if(el)el.closest('div').innerHTML=`<span style="color:#ff453a;">오류: ${msg}</span>`;};
     try{
       const ctrl=new AbortController();
       const tid=setTimeout(()=>ctrl.abort(),30000);
