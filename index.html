@@ -700,6 +700,41 @@ const buildRightPanel = () => {
 };
 
 /* ── Bottom Navigation ────────────────────────────────────────────────── */
+/* ── Settings page (mobile) ────────────────────────────────────────── */
+const buildSettings = () => {
+  const fbOk = !!_fbUrl, aiOk = !!_aiKey;
+  const row = (label, content) => `
+    <div style="display:flex;flex-direction:column;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;">
+      <span style="font:600 13px/1 var(--font-d);color:var(--muted);">${label}</span>
+      ${content}
+    </div>`;
+  return `<div>
+  <div style="font:600 28px/1.1 var(--font-d);letter-spacing:-.5px;margin-bottom:20px;">설정</div>
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    ${row('⚡ Firebase 동기화', fbOk
+      ? `<div style="font:500 13px/1.4 var(--font-t);color:var(--green);word-break:break-all;">${_fbUrl}</div>
+         <button onclick="App.fbDisconnect()" style="border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:9px;padding:8px 14px;font:500 13px/1 var(--font-t);">연결 해제</button>`
+      : `<div style="font:400 12px/1.5 var(--font-t);color:var(--muted);">두 기기가 실시간으로 데이터를 공유합니다.<br>Firebase Console → Realtime Database URL 입력</div>
+         <button onclick="App.fbSetup()" style="background:var(--accent);color:#fff;border-radius:9px;padding:9px 14px;font:600 13px/1 var(--font-t);">Firebase URL 입력</button>`
+    )}
+    ${row('✦ Claude API', aiOk
+      ? `<div style="font:500 13px/1.4 var(--font-t);color:var(--green);">sk-ant-api...${_aiKey.slice(-4)} 연결됨</div>
+         <button onclick="App.aiDisconnect()" style="border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:9px;padding:8px 14px;font:500 13px/1 var(--font-t);">연결 해제</button>`
+      : `<div style="font:400 12px/1.5 var(--font-t);color:var(--muted);">문자·엑셀 내역을 붙여넣으면 자동으로 거래 내역을 추출합니다.<br>console.anthropic.com에서 발급</div>
+         <button onclick="App.aiSetup()" style="background:#bf5af2;color:#fff;border-radius:9px;padding:9px 14px;font:600 13px/1 var(--font-t);">API 키 입력</button>`
+    )}
+    ${row('🎨 화면', `
+      <button onclick="App.toggleDark()" style="display:flex;align-items:center;justify-content:space-between;width:100%;border:1px solid var(--line);background:transparent;color:var(--text);border-radius:9px;padding:9px 14px;font:500 13px/1 var(--font-t);">
+        <span>다크 모드</span><span>${st.dark?'켜짐':'꺼짐'}</span>
+      </button>
+      <button onclick="App.exportJSON()" style="display:flex;align-items:center;justify-content:space-between;width:100%;border:1px solid var(--line);background:transparent;color:var(--text);border-radius:9px;padding:9px 14px;font:500 13px/1 var(--font-t);">
+        <span>데이터 내보내기</span><span style="color:var(--muted);">JSON</span>
+      </button>
+    `)}
+  </div>
+</div>`;
+};
+
 const buildBottomNav = () => {
   const btn = (key, ico, label, fn) => {
     const on = st.page === key;
@@ -710,6 +745,7 @@ const buildBottomNav = () => {
     ${btn('fixed','📌','고정지출','goFixed')}
     ${btn('shared','💳','생활비','goShared')}
     ${btn('plan','📊','계획','goPlan')}
+    ${btn('settings','⚙️','설정','goSettings')}
   </nav>`;
 };
 
@@ -725,7 +761,7 @@ const render = () => {
   // also set on html for CSS var cascade
   document.documentElement.style.setProperty('--accent',st.accent);
 
-  const page={dash:buildDash,fixed:buildFixed,shared:buildShared,plan:buildPlan}[st.page]||buildDash;
+  const page={dash:buildDash,fixed:buildFixed,shared:buildShared,plan:buildPlan,settings:buildSettings}[st.page]||buildDash;
   const monthNav=`<div style="position:sticky;top:0;z-index:10;display:flex;justify-content:flex-end;padding-bottom:4px;margin-bottom:8px;background:var(--bg);">
     <div style="display:inline-flex;align-items:center;gap:16px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 18px;box-shadow:0 1px 8px rgba(0,0,0,.07);">
       <button onclick="App.prevMonth()" style="background:transparent;border:0;color:var(--muted);font-size:13px;padding:0 2px;line-height:1;" ${st.month<=1?'disabled style="opacity:.3;background:transparent;border:0;color:var(--muted);font-size:13px;padding:0 2px;"':''}>◀</button>
@@ -733,7 +769,8 @@ const render = () => {
       <button onclick="App.nextMonth()" style="background:transparent;border:0;color:var(--muted);font-size:13px;padding:0 2px;line-height:1;" ${st.month>=12?'disabled style="opacity:.3;background:transparent;border:0;color:var(--muted);font-size:13px;padding:0 2px;"':''}>▶</button>
     </div>
   </div>`;
-  root.innerHTML=buildSidebar()+`<main>${monthNav}${page()}</main>`+buildRightPanel()+buildBottomNav();
+  const showMonthNav = st.page !== 'settings';
+  root.innerHTML=buildSidebar()+`<main>${showMonthNav?monthNav:''}${page()}</main>`+buildRightPanel()+buildBottomNav();
   startClock();
 
   if(_fid){const el=document.getElementById(_fid);if(el){el.focus();try{el.setSelectionRange(el.value.length,el.value.length);}catch(e){}}}
@@ -748,6 +785,7 @@ window.App={
   goFixed(){st.page='fixed';render();},
   goShared(){st.page='shared';render();},
   goPlan(){st.page='plan';render();},
+  goSettings(){st.page='settings';render();},
   setMonth(m){st.month=m;render();},
   prevMonth(){if(st.month>1){st.month--;render();}},
   nextMonth(){if(st.month<12){st.month++;render();}},
