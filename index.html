@@ -48,6 +48,15 @@ main{flex:1;min-width:0;padding:28px 34px 64px;overflow-y:auto;height:100vh}
 ::-webkit-scrollbar-thumb:hover{background:var(--muted)}
 .rp{width:210px;flex-shrink:0;background:var(--sidebar);border-left:1px solid var(--line);
   position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:18px 14px;overflow-y:auto;gap:14px;}
+.kb-bnav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--sidebar);border-top:1px solid var(--line);z-index:100;padding:4px 0 max(8px,env(safe-area-inset-bottom));}
+@media(max-width:768px){
+  aside{display:none!important}
+  .rp{display:none!important}
+  main{padding:16px 14px 80px!important;height:auto!important;overflow-y:unset!important}
+  body{overflow-y:auto}
+  #root{height:auto;overflow-y:auto}
+  .kb-bnav{display:flex}
+}
 </style>
 </head>
 <body>
@@ -140,6 +149,7 @@ if(st.people[1].name==='승국'){st.people[1].name='sk';st.people[1].initial='S'
 /* ── Helpers ───────────────────────────────────────────────────────── */
 const fmt = n => Math.round(n||0).toLocaleString('ko-KR');
 const fmtI = n => n ? Math.round(n).toLocaleString('ko-KR') : '';
+const isMob = () => window.innerWidth < 769;
 const parseAmt = v => parseInt((v+'').replace(/,/g,''), 10) || 0;
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const pFixed = p => p.rows.reduce((a,r)=>a+(+r.amt||0),0);
@@ -340,7 +350,7 @@ const buildDash = () => {
     ${statCard('생활비 통장 합계',fmt(totAcc)+'원','매달 공동 통장으로',acc)}
     ${statCard('공동 통장 잔액',fmt(bal)+'원',MN[st.month]+' 현재','var(--text)')}
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+  <div style="display:grid;grid-template-columns:${isMob()?'1fr':'1fr 1fr 1fr'};gap:16px;margin-bottom:16px;">
     <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px 20px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
         <span style="width:26px;height:26px;border-radius:9999px;background:${st.people[0].accent};color:#fff;display:flex;align-items:center;justify-content:center;font:600 12px/1 var(--font-d);">${st.people[0].initial}</span>
@@ -415,7 +425,7 @@ const buildDash = () => {
       <div style="position:relative;height:230px;"><canvas id="kb-donut"></canvas></div>
     </div>
   </div>
-  <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:16px;">
+  <div style="display:grid;grid-template-columns:${isMob()?'1fr':'1.15fr 1fr'};gap:16px;">
     <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
       <div style="font:600 16px/1 var(--font-d);margin-bottom:4px;">월별 수지</div>
       <div style="font:400 12px/1 var(--font-t);color:var(--muted);margin-bottom:12px;">수입 · 지출 연간 추이</div>
@@ -484,10 +494,10 @@ const buildFixed = () => {
   return `<div>
   <div style="font:600 28px/1.1 var(--font-d);letter-spacing:-.5px;margin-bottom:6px;">고정지출</div>
   <div style="font:400 14px/1.4 var(--font-t);color:var(--muted);margin-bottom:20px;">항목·금액을 직접 수정하면 분담액과 대시보드가 자동으로 갱신됩니다</div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">${cards}</div>
+  <div style="display:grid;grid-template-columns:${isMob()?'1fr':'1fr 1fr'};gap:16px;margin-bottom:16px;">${cards}</div>
   <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 24px;">
     <div style="font:600 15px/1 var(--font-d);margin-bottom:14px;">합산 요약</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+    <div style="display:grid;grid-template-columns:${isMob()?'1fr 1fr':'repeat(3,1fr)'};gap:14px;">
       <div><div style="font:400 12px/1 var(--font-t);color:var(--muted);margin-bottom:6px;">두 사람 급여</div><div class="tnum" style="font:600 20px/1 var(--font-d);color:var(--green);">${fmt(totInc)}원</div></div>
       <div><div style="font:400 12px/1 var(--font-t);color:var(--muted);margin-bottom:6px;">총 고정지출</div><div class="tnum" style="font:600 20px/1 var(--font-d);color:var(--red);">${fmt(totFixed)}원</div></div>
       <div><div style="font:400 12px/1 var(--font-t);color:var(--muted);margin-bottom:6px;">생활비 통장 합계</div><div class="tnum" style="font:600 20px/1 var(--font-d);color:${st.accent};">${fmt(totAcc)}원</div></div>
@@ -502,20 +512,34 @@ const buildShared = () => {
   const rows=st.ledger.txns.map((t,i)=>{
     const inc=t.amt>0?t.amt:0, exp=t.amt<0?-t.amt:0;
     bal+=t.amt; tin+=inc; tout+=exp;
-    return `<div class="erow" style="display:grid;grid-template-columns:60px 1fr 100px 100px 110px 30px;align-items:center;padding:8px 20px;border-bottom:1px solid var(--line);">
-      <span style="font:400 12px/1 var(--font-t);color:var(--muted);">${esc(t.date)}</span>
-      <span style="font:400 14px/1.2 var(--font-t);">${esc(t.name)}</span>
-      <span class="tnum" style="text-align:right;font:500 13.5px/1 var(--font-t);color:var(--green);">${inc?fmt(inc):'–'}</span>
-      <span class="tnum" style="text-align:right;font:500 13.5px/1 var(--font-t);color:var(--red);">${exp?fmt(exp):'–'}</span>
-      <span class="tnum" style="text-align:right;font:600 13.5px/1 var(--font-t);">${fmt(bal)}</span>
-      <button onclick="App.delTxn(${i})" class="del" style="background:transparent;color:var(--muted);font-size:14px;justify-self:end;">✕</button>
-    </div>`;
+    if(isMob()){
+      return `<div class="erow" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--line);">
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <span style="font:400 11px/1 var(--font-t);color:var(--muted);">${esc(t.date)}</span>
+          <span style="font:400 14px/1.2 var(--font-t);">${esc(t.name)}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+          <span class="tnum" style="font:600 14px/1 var(--font-t);color:${t.amt>0?'var(--green)':'var(--red)'};">${t.amt>0?'+':'-'}${fmt(Math.abs(t.amt))}</span>
+          <span class="tnum" style="font:400 11px/1 var(--font-t);color:var(--muted);">${fmt(bal)}</span>
+        </div>
+        <button onclick="App.delTxn(${i})" class="del" style="background:transparent;color:var(--muted);font-size:14px;margin-left:8px;">✕</button>
+      </div>`;
+    }else{
+      return `<div class="erow" style="display:grid;grid-template-columns:60px 1fr 100px 100px 110px 30px;align-items:center;padding:8px 20px;border-bottom:1px solid var(--line);">
+        <span style="font:400 12px/1 var(--font-t);color:var(--muted);">${esc(t.date)}</span>
+        <span style="font:400 14px/1.2 var(--font-t);">${esc(t.name)}</span>
+        <span class="tnum" style="text-align:right;font:500 13.5px/1 var(--font-t);color:var(--green);">${inc?fmt(inc):'–'}</span>
+        <span class="tnum" style="text-align:right;font:500 13.5px/1 var(--font-t);color:var(--red);">${exp?fmt(exp):'–'}</span>
+        <span class="tnum" style="text-align:right;font:600 13.5px/1 var(--font-t);">${fmt(bal)}</span>
+        <button onclick="App.delTxn(${i})" class="del" style="background:transparent;color:var(--muted);font-size:14px;justify-self:end;">✕</button>
+      </div>`;
+    }
   }).join('');
   const d=st.draft;
   return `<div>
   <div style="font:600 28px/1.1 var(--font-d);letter-spacing:-.5px;margin-bottom:6px;">공동생활비</div>
   <div style="font:400 14px/1.4 var(--font-t);color:var(--muted);margin-bottom:20px;">생활비 통장의 이월·수입·지출을 기록하면 잔액이 자동 계산됩니다</div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;">
+  <div style="display:grid;grid-template-columns:${isMob()?'1fr':'repeat(3,1fr)'};gap:14px;margin-bottom:16px;">
     <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;"><div style="font:500 12px/1 var(--font-t);color:var(--muted);margin-bottom:7px;">총 수입 (이월 포함)</div><div class="tnum" style="font:600 22px/1 var(--font-d);color:var(--green);">${fmt(tin)}원</div></div>
     <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;"><div style="font:500 12px/1 var(--font-t);color:var(--muted);margin-bottom:7px;">총 지출</div><div class="tnum" style="font:600 22px/1 var(--font-d);color:var(--red);">${fmt(tout)}원</div></div>
     <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;"><div style="font:500 12px/1 var(--font-t);color:var(--muted);margin-bottom:7px;">남은 잔액</div><div class="tnum" style="font:600 22px/1 var(--font-d);color:${st.accent};">${fmt(bal)}원</div></div>
@@ -528,17 +552,27 @@ const buildShared = () => {
       </label>
       <span style="font:400 12px/1 var(--font-t);color:var(--muted);">${st.ledger.txns.length}건의 거래</span>
     </div>
-    <div style="display:grid;grid-template-columns:60px 1fr 100px 100px 110px 30px;padding:9px 20px;border-bottom:1px solid var(--line);font:600 10.5px/1 var(--font-t);color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">
+    ${!isMob()?`<div style="display:grid;grid-template-columns:60px 1fr 100px 100px 110px 30px;padding:9px 20px;border-bottom:1px solid var(--line);font:600 10.5px/1 var(--font-t);color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">
       <span>날짜</span><span>내용</span><span style="text-align:right;">수입</span><span style="text-align:right;">지출</span><span style="text-align:right;">잔액</span><span></span>
-    </div>
+    </div>`:''}
     ${rows}
-    <div style="display:grid;grid-template-columns:60px 1fr 100px 100px 34px;gap:8px;align-items:center;padding:11px 20px;background:var(--chip);">
+    ${isMob()?`<div style="display:flex;flex-direction:column;gap:8px;padding:11px 16px;background:var(--chip);">
+      <div style="display:flex;gap:8px;">
+        <input class="kb-in" type="text" id="dd" value="${esc(d.date)}" oninput="App.editDraft('date',this.value)" placeholder="6/15" style="font-size:13px;flex:1;">
+        <input class="kb-in" type="text" id="dn" value="${esc(d.name)}" oninput="App.editDraft('name',this.value)" placeholder="내용" style="font-size:13px;flex:1;">
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input class="kb-in" type="text" id="di" value="${fmtI(d.inc)}" oninput="App.editDraft('inc',this.value)" placeholder="수입" style="font-size:13px;text-align:right;color:var(--green);flex:1;">
+        <input class="kb-in" type="text" id="de" value="${fmtI(d.exp)}" oninput="App.editDraft('exp',this.value)" placeholder="지출" style="font-size:13px;text-align:right;color:var(--red);flex:1;">
+        <button onclick="App.addTxn()" style="background:${st.accent};color:#fff;border-radius:9px;height:34px;width:34px;font:600 16px/1 var(--font-t);">＋</button>
+      </div>
+    </div>`:`<div style="display:grid;grid-template-columns:60px 1fr 100px 100px 34px;gap:8px;align-items:center;padding:11px 20px;background:var(--chip);">
       <input class="kb-in" type="text" id="dd" value="${esc(d.date)}" oninput="App.editDraft('date',this.value)" placeholder="6/15" style="font-size:13px;">
       <input class="kb-in" type="text" id="dn" value="${esc(d.name)}" oninput="App.editDraft('name',this.value)" placeholder="내용" style="font-size:13px;">
       <input class="kb-in" type="text" id="di" value="${fmtI(d.inc)}" oninput="App.editDraft('inc',this.value)" placeholder="수입" style="font-size:13px;text-align:right;color:var(--green);">
       <input class="kb-in" type="text" id="de" value="${fmtI(d.exp)}" oninput="App.editDraft('exp',this.value)" placeholder="지출" style="font-size:13px;text-align:right;color:var(--red);">
       <button onclick="App.addTxn()" style="background:${st.accent};color:#fff;border-radius:9px;height:34px;font:600 16px/1 var(--font-t);width:100%;">＋</button>
-    </div>
+    </div>`}
   </div>
 </div>`;
 };
@@ -564,7 +598,7 @@ const buildPlan = () => {
   return `<div>
   <div style="font:600 28px/1.1 var(--font-d);letter-spacing:-.5px;margin-bottom:6px;">계획</div>
   <div style="font:400 14px/1.4 var(--font-t);color:var(--muted);margin-bottom:20px;">두 사람 급여를 합쳐 고정지출·교육비·적금을 배분하는 반기 계획</div>
-  <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:16px;">
+  <div style="display:grid;grid-template-columns:${isMob()?'1fr':'1.1fr 1fr'};gap:16px;">
     <div style="background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;">
       <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;">
         <span style="font:600 16px/1 var(--font-d);">현금화 배분</span>
@@ -665,6 +699,20 @@ const buildRightPanel = () => {
 </section>`;
 };
 
+/* ── Bottom Navigation ────────────────────────────────────────────────── */
+const buildBottomNav = () => {
+  const btn = (key, ico, label, fn) => {
+    const on = st.page === key;
+    return `<button onclick="App.${fn}()" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 4px;background:transparent;border:0;color:${on?'var(--accent)':'var(--muted)'};font:${on?'600':'400'} 10px/1 var(--font-t);">${ico}<span>${label}</span></button>`;
+  };
+  return `<nav class="kb-bnav">
+    ${btn('dash','🏠','대시보드','goDash')}
+    ${btn('fixed','📌','고정지출','goFixed')}
+    ${btn('shared','💳','생활비','goShared')}
+    ${btn('plan','📊','계획','goPlan')}
+  </nav>`;
+};
+
 /* ── Render ────────────────────────────────────────────────────────── */
 let _fid=null, _fss=null, _fse=null;
 const render = () => {
@@ -685,7 +733,7 @@ const render = () => {
       <button onclick="App.nextMonth()" style="background:transparent;border:0;color:var(--muted);font-size:13px;padding:0 2px;line-height:1;" ${st.month>=12?'disabled style="opacity:.3;background:transparent;border:0;color:var(--muted);font-size:13px;padding:0 2px;"':''}>▶</button>
     </div>
   </div>`;
-  root.innerHTML=buildSidebar()+`<main>${monthNav}${page()}</main>`+buildRightPanel();
+  root.innerHTML=buildSidebar()+`<main>${monthNav}${page()}</main>`+buildRightPanel()+buildBottomNav();
   startClock();
 
   if(_fid){const el=document.getElementById(_fid);if(el){el.focus();try{el.setSelectionRange(el.value.length,el.value.length);}catch(e){}}}
