@@ -767,8 +767,8 @@ const render = () => {
 
   const root=document.getElementById('root');
   root.dataset.theme=st.dark?'dark':'light';
+  document.documentElement.dataset.theme=st.dark?'dark':'light';
   root.style.setProperty('--accent',st.accent);
-  // also set on html for CSS var cascade
   document.documentElement.style.setProperty('--accent',st.accent);
 
   const page={dash:buildDash,fixed:buildFixed,shared:buildShared,plan:buildPlan,settings:buildSettings}[st.page]||buildDash;
