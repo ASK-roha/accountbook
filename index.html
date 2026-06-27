@@ -200,7 +200,9 @@ const fbConnect = () => {
       if(remoteLen < localLen){persist();_synced=true;render();return;}
       const {_dev,...data}=remote;
       Object.assign(st,data);
-      if(!st.draft)st.draft={date:'',name:'',inc:'',exp:''};
+      if(!st.ledger) st.ledger={carry:0,txns:[]};
+      if(!Array.isArray(st.ledger.txns)) st.ledger.txns=[];
+      if(!st.draft) st.draft={date:'',name:'',inc:'',exp:''};
       _synced=true; render();
     }catch(ex){}
   });
@@ -1111,7 +1113,9 @@ window.App={
       }
       const {_dev,...data}=remote;
       Object.assign(st,data);
-      if(!st.draft)st.draft={date:'',name:'',inc:'',exp:''};
+      if(!st.ledger) st.ledger={carry:0,txns:[]};
+      if(!Array.isArray(st.ledger.txns)) st.ledger.txns=[];
+      if(!st.draft) st.draft={date:'',name:'',inc:'',exp:''};
       _synced=true; persist(); render();
       toast(`불러오기 완료 ✓ (${remoteLen}건)`);
     }catch(e){
